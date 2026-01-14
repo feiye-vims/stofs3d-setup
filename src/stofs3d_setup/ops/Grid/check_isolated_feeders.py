@@ -3,7 +3,7 @@ Check if any feeders are isolated from the main hgrid domain
 """
 
 
-from schism_py_pre_post.Utilities.import_util import get_hgrid_reader
+from spp_core.Utilities.import_util import get_hgrid_reader
 
 read_hgrid = get_hgrid_reader()
 

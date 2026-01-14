@@ -1,8 +1,7 @@
 # %%
-from pylib import schism_grid, grd2sms
+from pylib import schism_grid, grd2sms, sms2grd
 import os
-from schism_py_pre_post.Grid.Hgrid_extended import read_schism_hgrid_cached
-from schism_py_pre_post.Grid.SMS import lonlat2cpp
+from spp_core.Grid.SMS import lonlat2cpp
 import pathlib
 import copy
 import pickle
@@ -10,7 +9,7 @@ import pickle
 
 def set_ocean_bnd(hgrid_name='', gd:schism_grid=None, south_east=[-60.04, 8.56], north_east=[-60.04, 45.82]):
     if gd is None:
-        gd = read_schism_hgrid_cached(hgrid_name, overwrite_cache=True)
+        gd = schism_grid(hgrid_name)
     gd.compute_bnd(bxy=[south_east[0], north_east[0], south_east[1], north_east[1]])
 
     if hgrid_name != '':
@@ -20,7 +19,7 @@ def set_ocean_bnd(hgrid_name='', gd:schism_grid=None, south_east=[-60.04, 8.56],
 
 def gen_hgrid_formats(hgrid_name='', gd:schism_grid=None, write_bnd=True):
     if gd is None:
-        gd = read_schism_hgrid_cached(hgrid_name, overwrite_cache=True)
+        gd = schism_grid(hgrid_name)
     else:
         hgrid_name = gd.source_file
 
@@ -63,7 +62,7 @@ if __name__ == "__main__":
     # Sample usage
     # wdir = '/sciclone/schism10/feiye/STOFS3D-v5/Inputs/v14/Parallel/SMS_proj/v14.42_post_proc2/'
     # Add boundary and generate different hgrid formats
-    gd = read_schism_hgrid_cached('/sciclone/schism10/feiye/STOFS3D-v6/Inputs/V6_mesh_from_JZ2/hgrid.102008_fixed.2dm')
+    gd = sms2grd('/sciclone/schism10/feiye/STOFS3D-v6/Inputs/V6_mesh_from_JZ2/hgrid.102008_fixed.2dm')
     # gd = set_ocean_bnd(f'{wdir}/hgrid.ll')
     gd.proj(prj0='esri:102008', prj1='epsg:4326')
     gd.compute_bnd()

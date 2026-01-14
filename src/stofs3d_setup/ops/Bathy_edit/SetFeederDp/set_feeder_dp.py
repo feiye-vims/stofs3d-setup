@@ -1,13 +1,9 @@
-import os
 import socket
-from schism_py_pre_post.Grid.SourceSinkIn import source_sink, SourceSinkIn
-from schism_py_pre_post.Grid.SMS import lonlat2cpp
-from schism_py_pre_post.Timeseries.TimeHistory import TimeHistory
 import numpy as np
 from scipy import spatial
 import pickle
 import copy
-from pylib import sms2grd
+# from pylib import sms2grd
 if 'gulf' in socket.gethostname():
     from pylib_experimental.schism_file import cread_schism_hgrid as schism_read
     print('Using c++ function to accelerate hgrid reading')
@@ -16,15 +12,16 @@ else:
     print('Using python function to read hgrid')
 
 
-
 def nearest_neighbour(points_a, points_b):
     tree = spatial.cKDTree(points_b)
     return np.array(tree.query(points_a)[1]).reshape(-1,), np.array(tree.query(points_a)[0]).reshape(-1,)
+
 
 def dist(points_group_A, points_group_B):
     points_A = np.squeeze(points_group_A.view(np.complex128))
     points_B = np.squeeze(points_group_B.view(np.complex128))
     return np.absolute(points_A-points_B)
+
 
 def transfer_grid_z(src_grd, target_grd):
     '''
@@ -63,6 +60,7 @@ def set_feeder_dp(feeder_info_dir='', hgrid_obj=None, hgrid_obj_no_feeder=None):
         hgrid_obj.dp[gd_points_in_external_feeder] = hgrid_obj.dp[base_point_in_grid]
 
     return hgrid_obj
+
 
 if __name__ == "__main__":
     # sample usage

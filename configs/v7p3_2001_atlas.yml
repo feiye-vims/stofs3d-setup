@@ -20,18 +20,18 @@ runtime:
   scr_dir: "/sciclone/scr10/feiye/STOFS3D-v7.3/"
 
 inputs:
-  bctides: true
+  bctides: false
   vgrid: false
   gr3: false
   nudge_gr3: false
   shapiro: false
   drag: false
   elev_ic: false
-  flux_th: true
+  flux_th: false
   source_sink: true
   soil: false
-  "hotstart.nc": true
-  "3D.th.nc": true
-  "*nu.nc": true
-  "elev2D.th.nc": true
+  "hotstart.nc": false
+  "3D.th.nc": false
+  "*nu.nc": false
+  "elev2D.th.nc": false
   "*.prop": false

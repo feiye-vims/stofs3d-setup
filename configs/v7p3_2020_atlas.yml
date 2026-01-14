@@ -4,10 +4,11 @@ run:
   project_dir: "/sciclone/schism10/feiye/STOFS3D-v7.3/"
   runid: "21i"
   hgrid_path: "/sciclone/schism10/feiye/STOFS3D-v8/v7.3_static_inputs_2025_09_09/hgrid.gr3"
+  vgrid_path: "/sciclone/schism10/feiye/STOFS3D-v8/v7.2_static_inputs_2025_04_12/vgrid.in"
 
 model:
   version: "v7p2"
-  rnday: 398
+  rnday: 397
   startdate: "2019-12-01"
   nwm_cache_folder: '/sciclone/schism10/feiye/STOFS3D-v8/NWM/CONUS/netcdf/CHRTOUT/for_2020_hindcast/'
   existing_source_json_path: '/sciclone/schism10/feiye/STOFS3D-v8/I15k_v7/Source_sink/original_source_sink/'
@@ -26,10 +27,10 @@ inputs:
   shapiro: false
   drag: false
   elev_ic: false
-  source_sink: true
+  source_sink: false
   soil: false
   "hotstart.nc": false
   "3D.th.nc": false
   "elev2D.th.nc": false
-  "*nu.nc": false
+  "*nu.nc": true
   "*.prop": false

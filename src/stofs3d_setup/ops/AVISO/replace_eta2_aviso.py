@@ -8,7 +8,7 @@ from netCDF4 import Dataset
 from pyschism.forcing.hycom.hycom2schism import interp_to_points_2d
 
 from pylib import read_schism_hgrid, loadz, zdata, WriteNC
-from schism_py_pre_post.Shared_modules.hotstart_proc import Hotstart
+from spp_core.Utilities.hotstart_proc import Hotstart
 
 def transform_ll_to_cpp(lon, lat, lonc=-77.07, latc=24.0):
     longitude = lon/180*np.pi

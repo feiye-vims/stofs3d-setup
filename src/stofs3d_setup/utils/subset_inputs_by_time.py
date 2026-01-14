@@ -20,20 +20,24 @@ def subset_nc(wdir, base_time: pd.Timestamp, start_time: pd.Timestamp, end_time:
     Assuming time is in seconds since base_time for *D.th.nc
     '''
     file_dict = {}
-    file_names = glob(f'{wdir}/*nu.nc')
-    for file in file_names:
-        file_dict[Path(file).stem] = {
-            'file_path': Path(file),
-            'time_unit': 'D',
-        }
     file_names = glob(f'{wdir}/*D.th.nc')
     for file in file_names:
         file_dict[Path(file).stem] = {
             'file_path': Path(file),
             'time_unit': 's',
         }
+    file_names = glob(f'{wdir}/*nu.nc')
+    for file in file_names:
+        file_dict[Path(file).stem] = {
+            'file_path': Path(file),
+            'time_unit': 'D',
+        }
 
     for file, file_info in file_dict.items():
+        if Path(file_info['file_path']).exists() is False:
+            print(f'File {file} does not exist. Skipping.')
+            continue
+
         print('subsetting file:', file)
 
         ds = xr.open_dataset(file_info['file_path'])
@@ -63,6 +67,10 @@ def subset_th(wdir, base_time: pd.Timestamp, start_time: pd.Timestamp, end_time:
     '''
     file_names = glob(f'{wdir}/*.th')
     for file in file_names:
+        if Path(file).exists() is False:
+            print(f'File {file} does not exist. Skipping.')
+            continue
+
         print('subsetting file:', file)
         th = TimeHistory.from_file(file, start_time_str=base_time.strftime('%Y%m%d %H%M%S'))
 
@@ -89,6 +97,10 @@ def subset_source_nc(wdir, base_time: pd.Timestamp, start_time: pd.Timestamp, en
     '''
     file_name = f'{wdir}/source.nc'
 
+    if Path(file_name).exists() is False:
+        print(f'File {file_name} does not exist. Skipping subsetting source.nc.')
+        return
+
     print('subsetting file:', file_name)
     my_ss = SourceSink.from_ncfile(file_name, start_time_str=base_time.strftime('%Y-%m-%d %H:%M:%S'))
 
@@ -111,11 +123,11 @@ def subset_inputs_by_time():
 
 if __name__ == '__main__':
     # Example usage
-    WDIR = '/sciclone/schism10/feiye/STOFS3D-v8/I15b1_v7/'
-    base_date = pd.Timestamp('2017-12-01')
-    start_date = pd.Timestamp('2018-09-07')
-    end_date = pd.Timestamp('2018-09-30')
+    WDIR = '/sciclone/schism10/feiye/STOFS3D-v7.3/I21i/Time_subset_inputs/'
+    base_date = pd.Timestamp('2019-12-01')
+    start_date = pd.Timestamp('2019-12-31')
+    end_date = pd.Timestamp('2021-01-02')
 
+    subset_nc(WDIR, base_date, start_date, end_date)
     subset_source_nc(WDIR, base_date, start_date, end_date)
     subset_th(WDIR, base_date, start_date, end_date)
-    subset_nc(WDIR, base_date, start_date, end_date)

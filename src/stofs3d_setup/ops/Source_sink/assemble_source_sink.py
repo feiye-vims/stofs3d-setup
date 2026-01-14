@@ -188,6 +188,8 @@ def assemble_source_sink(config, hgrid, model_input_path=None, wdir=None):
     # Note: this is optional, depending on the availability of USGS data
     if config.replace_nwm_with_usgs:
         print('replacing NWM sources with USGS observed flow rates ...')
+        # this will save the original_ss_dir to original_source_sink_before_USGS_adjustment
+        # and overwrite original_ss_dir/vsource.th with adjusted_vsource.th
         source_nwm2usgs(
             start_time_str=config.startdate.strftime('%Y-%m-%d %H:%M:%S'),
             states=STOFS3D_ATL_STATES,
@@ -314,7 +316,7 @@ def assemble_source_sink(config, hgrid, model_input_path=None, wdir=None):
     else:
         os.system('ln -sf ./original_source_sink/sources.json .')
 
-    # temporary fix for isolated feeder channels; Note this doesn't change sources.json and source.nc
+    # temporary fix for isolated feeder channels; Note this doesn't change sources.json or source.nc
     if config.source_ele_replace_dict is not None:
         from .patch_feeder_source_sink_in import replace_ele_in_source_sink
         replace_ele_in_source_sink(wdir, config.source_ele_replace_dict)

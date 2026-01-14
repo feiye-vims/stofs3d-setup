@@ -474,7 +474,9 @@ def source_nwm2usgs(
     NWM v1's shapefile is used to associate USGS stations with NWM segments. Later versions of NWM has this information in RouteLink_DA_pts_CONUS of the hydrofabric.
     This is acceptable because the segment IDs are the same between NWM v1 and later versions.
     And for the STOFS3D-ATL domain, the NWM segments seem to be the same through different NWM versions as of v3
-    The output is adjusted vsource.th written to output_dir. It will also link the adjusted vsource.th to original_ss_dir/vsource.th and save the original vsource.th as vsource.th.0
+    The output is adjusted vsource.th written to output_dir.
+    It will also link the adjusted vsource.th to original_ss_dir/vsource.th and save the original_ss_dir to
+    original_source_sink_before_USGS_adjustment
     '''
 
     os.makedirs(output_dir, exist_ok=True)
