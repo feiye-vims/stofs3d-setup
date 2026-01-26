@@ -41,6 +41,7 @@ IMPLEMENTED_TASKS = [  # order matters
     'Regional_tweaks',  # set minimum depth in regions specified in regional_tweaks
     'NCF',  # load NCF (National Channel Framework) maintained depth
     'Levee',  # set levees height based on National Levee Database
+    'Levee_dev',  # a development version of levee setting, not fully tested, using 2025 MTG levee data and not forcing min height
     'xGEOID',  # convert from NAVD88 to xGEOID, use viz (gulf has memory issues); deprecated, use Felicio's workflow
     'xGEOID_from_diff',  # convert from NAVD88 to xGEOID based on dp difference, must be the same (x, y)
     'Chart',  # load chart depth, the chart has been converted to xGEOID
@@ -57,9 +58,12 @@ LARGE_FILES = {
         Path('/work/noaa/nosofs/feiye/STOFS-3D-Atl-Example-Setup/DATA/NCF_patched_James/')
     ],
     'Levee': [
-        Path('/sciclone/schism10/Hgrid_projects/Levees/Levee_v3/FEMA_regions/'
-             'FEMA_region_levees/'),
+        Path('/sciclone/schism10/Hgrid_projects/Levees/Levee_v3/FEMA_regions/FEMA_region_levees/'),
         Path('/work/noaa/nosofs/feiye/STOFS-3D-Atl-Example-Setup/DATA/Levee/')
+    ],
+    'Levee_dev': [
+        Path('/sciclone/schism10/Hgrid_projects/Levees/Levee_2025/FEMA_regions/FEMA_region_levees/'),
+        Path('/work/noaa/nosofs/feiye/STOFS-3D-Atl-Example-Setup/DATA/Levee_2025/')  # not uploaded yet
     ],
     'Chart': [
         Path('/sciclone/schism10/Hgrid_projects/Charts/Savanna_Cooper/SECOFS/'),
@@ -177,12 +181,20 @@ def bathy_edit(wdir: Path, hgrid_fname: Path, tasks: list = None):
         print("finished loading NCF.\n")
 
     if 'Levee' in tasks:  # set levees
-        from Levee.set_levees import set_levees
+        from Levee.set_levees_operation import set_levees
         hgrid_base_name += '_levee'
         os.chdir(f'{wdir}/Levee')  # to set the directory
         hgrid_obj = set_levees(min_levee_height_meters=2, hgrid_obj=hgrid_obj, wdir=f'{wdir}/Levee/')
         grd2sms(hgrid_obj, f'{wdir}/Levee/{hgrid_base_name}.2dm')
         print("Finished setting levees.\n")
+
+    if 'Levee_dev' in tasks:  # set levees
+        from Levee.set_levees_dev import set_levees
+        hgrid_base_name += '_levee'
+        os.chdir(f'{wdir}/Levee_dev')  # to set the directory
+        hgrid_obj = set_levees(hgrid_obj=hgrid_obj, wdir=f'{wdir}/Levee_dev/')
+        grd2sms(hgrid_obj, f'{wdir}/Levee_dev/{hgrid_base_name}.2dm')
+        print("Finished setting levees (dev).\n")
 
     if 'xGEOID' in tasks:  # convert from NAVD88 to xGEOID
         from xGEOID.convert2xgeoid import convert2xgeoid
@@ -255,11 +267,11 @@ def sample_usage():
     '''
     Sample usage of the bathy_edit function.
     '''
-    WDIR = Path('/sciclone/schism10/feiye/STOFS3D-v8/I15g_v7/Bathy_edit/')
-    HGRID_FNAME = Path(  # Typically, this is the DEM-loaded hgrid
-        '/sciclone/schism10/feiye/STOFS3D-v8/I15g_v7/Bathy_edit/DEM_loading/hgrid.ll.dem_loaded.mpi.gr3'
+    WDIR = Path('/sciclone/schism10/feiye/STOFS3D-v8/I32/Bathy_edit/')  # working directory, use absolute path
+    HGRID_FNAME = Path(  # Typically, this is the DEM-loaded hgrid, use absolute path
+        '/sciclone/schism10/feiye/STOFS3D-v8/I32/Bathy_edit/DEM_loading/hgrid.ll.dem_loaded.mpi.gr3'
     )
-    TASKS = {'Regional_tweaks', 'NCF', 'Levee', 'xGEOID_from_diff'}  # DEFAULT_TASKS
+    TASKS = {'Regional_tweaks', 'NCF', 'Levee_dev', 'xGEOID'}  # DEFAULT_TASKS
 
     bathy_edit(wdir=WDIR, hgrid_fname=HGRID_FNAME, tasks=TASKS)
 

@@ -1,7 +1,27 @@
 #!/usr/bin/env python3
 
 """
-Temporary levee profile setting script for the MTG levees
+Script to set levee profiles in SCHISM hgrid files.
+This script reads levee heights from the National Levee Database and additional
+levee information, and sets the levee profiles in the hgrid object.
+
+The levee top nodes are selected by buffering the levee centerline shapefile
+by a specified distance.
+
+The levee heights are set by matching the levee top nodes to the nearest levee height points
+within 0.01 degree (roughly 1000 m).
+
+Temporary measures:
+* Temporary fixes are applied to include additional nodes as levee top nodes
+  to prevent leaking of water through the levees, see temporary_levee_fix_102008.shp in
+  centerline_shp_dict.
+* Some levees in National Levee Database are not trustworthy, so they are set to
+  the nearest valid levee heights
+* Some levees are not in the National Levee Database, so they are set based on local levee shapefiles,
+  see set_local_levee_profile for more details.
+  Set dp to be the smallest of all local levee dp, i.e., highest levee, from MTG 2022 and 2024 levee heights.
+* Some levees are not in NLD or local levee shapefiles, so they are set based on estimated additional levee information,
+  see set_additional_dp for more details.
 """
 
 import os
@@ -12,11 +32,11 @@ import numpy as np
 import geopandas as gpd
 from scipy import spatial
 
-from spp_core.Download.download_nld import nld2map
+from spp_core.Download.download_nld import nld2map, nld2map2
 try:
     from pylib_experimental.schism_file import cread_schism_hgrid as schism_read
 except ImportError:
-    from pylib import schism_grid as schism_read
+    from pylib import schism_grid as schism_read, grd2sms
 
 
 def set_levee_profile(gd=None, wdir='./', centerline_shp_dict=None):
@@ -43,13 +63,28 @@ def set_levee_profile(gd=None, wdir='./', centerline_shp_dict=None):
 
     for _ in levee_names:
         # read levee heights as xyz
-        _, xyz = nld2map(nld_fname=f'{wdir}/System.geojson')
+        # _, xyz = nld2map(nld_fname=f'{wdir}/System.geojson')
+        _, xyz = nld2map2(nld_fname=f'{wdir}/SystemRoute.geojson')
+        # assert np.allclose(xyz, xyz2), "nld2map and nld2map2 should return the same xyz"
         levee_xyz = np.r_[levee_xyz, xyz]
     levee_x = levee_xyz[:, 0]
     levee_y = levee_xyz[:, 1]
     levee_height = levee_xyz[:, 2]
-    levee_height[levee_height < 1] = 27  # raise very low levees to 27 feet, because their heights are not trustworthy
-    levee_height *= 0.3048  # convert to meters
+
+    # deal with small levee heights
+    invalid_mask = levee_height < 1  # some levee heights are very close to 0, e.g., 0.000130833403 ft
+    valid_levee_height = levee_height[~invalid_mask]
+    _, idx = spatial.cKDTree(np.c_[levee_x[~invalid_mask], levee_y[~invalid_mask]]).query(
+        np.c_[levee_x[invalid_mask], levee_y[invalid_mask]], k=1)
+    # set the invalid levee heights to the nearest valid levee height
+    levee_height[invalid_mask] = valid_levee_height[idx]
+    # and clip at 6.56168 ft = 2 m, a minimum levee height for invalid levee heights
+    levee_height[invalid_mask] = np.clip(levee_height[invalid_mask], 6.56168, None)  # clip at 2 m
+    np.savetxt(f'{wdir}/{levee_name_str}_filled_invalid.xyz', np.c_[levee_x, levee_y, levee_height], fmt='%.10f')
+
+    # convert levee heights to meters
+    levee_height *= 0.3048
+
     # plt.plot(np.sort(levee_height))
     # plt.show()
 
@@ -110,7 +145,7 @@ def set_additional_dp(gd_ll=None, additional_levee_info=None):
     gd_meters.proj(prj0='epsg:4326', prj1='esri:102008')
 
     for levee_name, levee_info in additional_levee_info.items():
-        print(f"forcing dp = {levee_info['dp']} for {levee_name}")
+        print(f"forcing dp <= {levee_info['dp']} for {levee_name}")
         levee_centerline_gdf = gpd.read_file(levee_info['shapefile'])
         # buffer 3 m
         levee_centerline_gdf.geometry = levee_centerline_gdf.geometry.buffer(3)
@@ -195,7 +230,7 @@ def set_local_levee_profile(gd_ll=None, local_levee_info=None, i_levee_top_node=
     return gd_ll
 
 
-def set_levees(hgrid_obj, wdir, min_levee_height_meters=7):
+def set_levees(hgrid_obj, wdir):
     """
     A temporary levee setting script for the MTG levees.
     The levee heights are in NAVD88, but the hgrid is in xGEOID20b,
@@ -207,9 +242,6 @@ def set_levees(hgrid_obj, wdir, min_levee_height_meters=7):
     2) Additional manually tweaked levee heights
     3) Local levee heights (not in the National Levee Database)
         This part may need to be adjusted based on the local levee shapefile
-
-    min_levee_height_meters: minimum levee height (positive upward),
-        to avoid unrealistically low levees (some levees has 0 height)
     """
 
     # levee nodes that take values from National Levee Database
@@ -223,10 +255,10 @@ def set_levees(hgrid_obj, wdir, min_levee_height_meters=7):
 
     # additional tweaks on levee heights
     additional_levee_info = {
-        'Bonnet Carre Spill Way': {
-            'dp': -9,
-            'shapefile': 'Levee_info/Polygons/v3_BonnetCarre_centerline_esri102008.shp',
-        },
+        # 'Bonnet Carre Spill Way': {
+        #     'dp': -9,
+        #     'shapefile': 'Levee_info/Polygons/v3_BonnetCarre_centerline_esri102008.shp',
+        # },
         'Herbert Hoover Dam': {
             'dp': -9,
             'shapefile': 'Levee_info/Polygons/v3_HH_Dam_centerline_esri102008.shp',
@@ -236,7 +268,7 @@ def set_levees(hgrid_obj, wdir, min_levee_height_meters=7):
             'shapefile': 'Levee_info/Polygons/v3_additional_levee_centerline_esri102008.shp',
         },
         'Upstream Mississippi River Levee': {
-            'dp': -25,
+            'dp': -18.2,  # 60 ft, this is the levee height at the most downstream point of the shapefile
             'shapefile': 'Levee_info/Polygons/v3_la_upstream_missi_centerline_esri102008.shp',
         }
     }
@@ -271,10 +303,10 @@ def set_levees(hgrid_obj, wdir, min_levee_height_meters=7):
     # all top nodes of the levee will be attached to hgrid_obj as hgrid_obj.ilevee
     # this also writes ilevee (levee top nodes) in {levee_name}.gr3 for diagnostic purposes
     hgrid_obj = set_levee_profile(gd=hgrid_obj, wdir=wdir, centerline_shp_dict=centerline_shp_dict)
+    grd2sms(hgrid_obj, f'{wdir}/hgrid_with_NLD_levees.2dm')
 
-    print(f'force minimum dp to be above {min_levee_height_meters} m for all levee top points')
-    # revert the sign to apply on hgrid's dp, which is positive downward
-    hgrid_obj.dp[hgrid_obj.ilevee] = np.minimum(hgrid_obj.dp[hgrid_obj.ilevee], min_levee_height_meters * -1)
+    # print('force minimum dp to be above -7 m for all levee top points')
+    # hgrid_obj.dp[hgrid_obj.ilevee] = np.minimum(hgrid_obj.dp[hgrid_obj.ilevee], -7)
 
     print('loading additional tweaks on levee heights')
     hgrid_obj = set_additional_dp(gd_ll=hgrid_obj, additional_levee_info=additional_levee_info)
@@ -282,14 +314,19 @@ def set_levees(hgrid_obj, wdir, min_levee_height_meters=7):
     print('loading local levee heights')
     hgrid_obj = set_local_levee_profile(
         gd_ll=hgrid_obj, local_levee_info=local_levee_info, i_levee_top_node=hgrid_obj.ilevee)
-    
+
+    grd2sms(hgrid_obj, f'{wdir}/hgrid_with_all_levees.2dm')
     return hgrid_obj
 
 
 def sample():
     """ sample usage """
-    WDIR = '/sciclone/schism10/feiye/STOFS3D-v8/I04a/'
-    hg = schism_read('{WDIR}/hgrid.gr3')
+    WDIR = '/sciclone/schism10/feiye/STOFS3D-v8/I15w_v7/Set_Levee/'
+    os.chdir(WDIR)  # to set the directory
+    hg = schism_read(f'{WDIR}/v7.2_2025_04_12.gr3')
+    hg.dp[:] = 9999  # initialize dp to -9999
+    hg.save(f'{WDIR}/v7.2_2025_04_12_dp=9999.gr3')
+
     set_levees(hgrid_obj=hg, wdir=WDIR)
     hg.save(f'{WDIR}/hgrid_with_levees.gr3')
 

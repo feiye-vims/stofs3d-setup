@@ -36,15 +36,21 @@ from spp_core.Download.download_nld import nld2map, nld2map2
 try:
     from pylib_experimental.schism_file import cread_schism_hgrid as schism_read
 except ImportError:
-    from pylib import schism_grid as schism_read, grd2sms
+    from pylib import schism_grid as schism_read
+from pylib import grd2sms
 
 
-def set_levee_profile(gd=None, wdir='./', centerline_shp_dict=None):
+def set_levee_profile(gd=None, wdir='./', centerline_shp_dict=None, min_levee_height=6.56168):
     '''
     set levee profile based on the
     National Levee Database, and the centerline shapefile
 
     all top nodes of the levee will be attached to hgrid_obj as hgrid_obj.ilevee
+
+    min_levee_height: 
+      if levee height < 1 ft, it may not be true, so clip it to 6.56168 ft = 2 m
+      note that this is just a rough estimate, the resulting min levee height will be 1 ft,
+      because only lower levees are adjusted
     '''
     if centerline_shp_dict is None:
         raise ValueError('centerline_shp_dict is not provided')
@@ -79,8 +85,8 @@ def set_levee_profile(gd=None, wdir='./', centerline_shp_dict=None):
     # set the invalid levee heights to the nearest valid levee height
     levee_height[invalid_mask] = valid_levee_height[idx]
     # and clip at 6.56168 ft = 2 m, a minimum levee height for invalid levee heights
-    levee_height[invalid_mask] = np.clip(levee_height[invalid_mask], 6.56168, None)  # clip at 2 m
-    np.savetxt(f'{wdir}/{levee_name_str}_filled_invalid.xyz', np.c_[levee_x, levee_y, levee_height], fmt='%.10f')
+    levee_height[invalid_mask] = np.clip(levee_height[invalid_mask], min_levee_height, None)  # clip at 2 m
+    np.savetxt(f'{wdir}/{levee_name_str}_clipped_{min_levee_height}ft.xyz', np.c_[levee_x, levee_y, levee_height], fmt='%.10f')
 
     # convert levee heights to meters
     levee_height *= 0.3048
@@ -159,13 +165,13 @@ def set_additional_dp(gd_ll=None, additional_levee_info=None):
     return gd_ll
 
 
-def set_local_levee_profile(gd_ll=None, local_levee_info=None, i_levee_top_node=None):
+def set_local_levee_profile(gd_ll=None, local_levee_info=None, i_levee_top_node=None, max_levee=False):
     '''
     This function is to set the levee profile for the local levee, which is not in the National Levee Database,
     Note that the meshing is mostly based on centerlines from National Levee Database, but the local levee shapefile
     may have slight differences from the centerlines.
     To simplify the searching process, local levee nodes are selected from found levee top nodes that are
-    within a 200-m buffer of the local levee centerlines.
+    within a buffer (depending on local_levee_info) of the local levee centerlines.
 
     local_levee_info is a dictionary with the following keys:
     shapefile: the shapefile of the local levee centerline
@@ -180,10 +186,12 @@ def set_local_levee_profile(gd_ll=None, local_levee_info=None, i_levee_top_node=
         }
     }
 
-    i_levee_top_node is the output of the function set_levee_profile,
-    which should be a boolean array of the same length as gd_ll.dp
-    height_points should be an nx3 array, where n is the number of height points,
-    and the columns are lon, lat, z
+    i_levee_top_node is a boolean array indicating the top nodes of the levees,
+    which can be obtained from gd_ll.ilevee after setting levees from National Levee Database
+    by set_levee_profile.
+
+    max_levee: if True, set dp to be the smallest of all local levee dp, i.e., highest levee
+                if False, overwrite the dp with the local levee dp
     '''
 
     if gd_ll is None:
@@ -218,14 +226,17 @@ def set_local_levee_profile(gd_ll=None, local_levee_info=None, i_levee_top_node=
             np.c_[gd_ll.lon[i_top_local_levee], gd_ll.lat[i_top_local_levee]])
         local_levee_dp = - levee_info['height_points'][node2heightpoints, 2]  # invert the z value to get dp
 
-        # set dp to be the smallest of all local levee dp, i.e., highest levee
-        if i == 0:
+        if max_levee:
+            # set dp to be the smallest of all local levee dp, i.e., highest levee
+            if i == 0:
+                gd_ll.dp[i_top_local_levee] = local_levee_dp
+            else:
+                gd_ll.dp[i_top_local_levee] = np.minimum(gd_ll.dp[i_top_local_levee], local_levee_dp)
+        else:  # overwrite local levee dp in the order of local_levee_info
             gd_ll.dp[i_top_local_levee] = local_levee_dp
-        else:
-            gd_ll.dp[i_top_local_levee] = np.minimum(gd_ll.dp[i_top_local_levee], local_levee_dp)
-
+            
         # gd_ll.save(f'./hgrid_local_levee_loaded_ll.gr3')
-        # gd_ll.save(f'./hgrid_local_levee.gr3', value=i_top_local_levee.astype(int))
+        # gd_ll.save(f'./hgrid_local_levee_{levee_name}.gr3', value=i_top_local_levee.astype(int))
 
     return gd_ll
 
@@ -285,6 +296,12 @@ def set_levees(hgrid_obj, wdir):
     elev = local_levee_heights_gdf['field_4'].to_numpy() * 0.3048  # convert feet to meters
     local_levee_heights_2024 = np.c_[local_levee_heights_gdf.geometry.x, local_levee_heights_gdf.geometry.y, elev]
 
+    # MTG 2025
+    local_levee_heights_gdf = gpd.read_file(
+        f'{wdir}/Levee_info/Polygons/2025_CL_Profile_Data_DCC_25-2_lonlat_ft.shp')  # NAVD88
+    elev = local_levee_heights_gdf['Elev (FT)'].to_numpy() * 0.3048  # convert feet to meters
+    local_levee_heights_2025 = np.c_[local_levee_heights_gdf.geometry.x, local_levee_heights_gdf.geometry.y, elev]
+
     local_levee_info = {
         'MTG_2022': {
             'shapefile': 'Levee_info/Polygons/2022_MTG_Centerline_102008.shp',
@@ -295,6 +312,11 @@ def set_levees(hgrid_obj, wdir):
             'shapefile': 'Levee_info/Polygons/2024_MTG_Centerline_102008.shp',
             'height_points': local_levee_heights_2024,
             'buffer': 2000  # buffer 2000 m, a wide buffer is okay because only the levee top nodes will be selected
+        },
+        'MTG_2025': {
+            'shapefile': 'Levee_info/Polygons/2025_MTG_Centerline_102008.shp',
+            'height_points': local_levee_heights_2025,
+            'buffer': 250  # buffer 250 m, a wide buffer is okay because only the levee top nodes will be selected
         }
     }
     # ---------------------------------------------
@@ -319,18 +341,37 @@ def set_levees(hgrid_obj, wdir):
     return hgrid_obj
 
 
-def sample():
-    """ sample usage """
-    WDIR = '/sciclone/schism10/feiye/STOFS3D-v8/I15w_v7/Set_Levee/'
+def v7p3():
+    """
+    Load 2025 NLD and MTG levee heights into hgrid,
+    which updates v7.2 to v7.3
+    """
+
+    # prepare base hgrid to load new levee heights
+    WDIR = '/sciclone/schism10/feiye/STOFS3D-v8/I15y_v7/Set_Levee/'
     os.chdir(WDIR)  # to set the directory
     hg = schism_read(f'{WDIR}/v7.2_2025_04_12.gr3')
-    hg.dp[:] = 9999  # initialize dp to -9999
-    hg.save(f'{WDIR}/v7.2_2025_04_12_dp=9999.gr3')
+    hg_original = copy.deepcopy(hg)
+    
+    # set levee heights
+    hg.dp[:] = -9999  # initialize dp to -9999
+    hg.save(f'{WDIR}/v7.2_2025_04_12_dp=-9999.gr3')
 
     set_levees(hgrid_obj=hg, wdir=WDIR)
     hg.save(f'{WDIR}/hgrid_with_levees.gr3')
 
+    valid_value_mask = hg.dp > -9000
+    print(f"valid values after setting levees: {np.sum(valid_value_mask)} of {hg.np}")
+
+    # datum shift only for valid values
+    xgeoid_minus_navd = schism_read('/sciclone/schism10/feiye/STOFS3D-v8/I15_v7/Bathy_edit/xGEOID/hgrid_xGEOID20b_dp_minus_NAVD_dp.gr3')
+    hg.dp[valid_value_mask] += xgeoid_minus_navd.dp[valid_value_mask]
+
+    # plug in original dp for non-levee nodes
+    hg.dp[~valid_value_mask] = hg_original.dp[~valid_value_mask]
+    hg.save(f'{WDIR}/hgrid_with_levees_xGEOID.gr3', fmt=1)
+
 
 if __name__ == '__main__':
-    sample()
+    v7p3()
     print('Done')

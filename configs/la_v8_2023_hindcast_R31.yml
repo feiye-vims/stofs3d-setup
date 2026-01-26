@@ -17,16 +17,16 @@ runtime:
   scr_dir: "/sciclone/scr10/feiye/STOFS3D-v8/"
 
 inputs:
-  bctides: true
-  vgrid: true
-  gr3: true
-  nudge_gr3: true
-  shapiro: true
-  drag: true
-  elev_ic: true
-  source_sink: true
-  soil: true
-  "hotstart.nc": true
+  bctides: false
+  vgrid: false
+  gr3: false
+  nudge_gr3: false
+  shapiro: false
+  drag: false
+  elev_ic: false
+  source_sink: false
+  soil: false
+  "hotstart.nc": false
   "3D.th.nc": false
   "elev2D.th.nc": false
   "*nu.nc": false

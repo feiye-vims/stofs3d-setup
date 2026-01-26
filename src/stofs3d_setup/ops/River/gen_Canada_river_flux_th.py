@@ -55,7 +55,7 @@ def gen_Canada_river_flux_th(
     q = pd.to_numeric(df[val_col], errors="coerce")
     out = pd.DataFrame({
         f"time_seconds_since_{start_str}T00:00:00Z": secs,
-        "discharge_m3s": -q
+        "discharge_m3s": -q  # negate to follow SCHISM convention (negative for inflow)
     }).dropna()
 
     # Save
