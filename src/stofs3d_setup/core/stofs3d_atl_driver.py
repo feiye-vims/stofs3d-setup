@@ -212,7 +212,9 @@ def stofs3d_atl_driver(
 
         # generate nudging coefficient based on the proximity to the open boundaries
         nudge_coef = gen_nudge_coef(
-            hgrid, rlmax=config.nudging_zone_width, rnu_day=config.nudging_day)
+            hgrid, rlmax=config.nudging_zone_width, rnu_day=config.nudging_day,
+            ocean_bnd_ids=config.ocean_bnd_ids
+        )
 
         # write nudge.gr3
         hgrid.save(f'{model_input_path}/{sub_dir}/nudge.gr3', value=nudge_coef)
@@ -235,7 +237,10 @@ def stofs3d_atl_driver(
 
         if config.shapiro_zone_width > 0:
             # use the same method for nudge.gr3 to generate a buffer zone along the open boundaries
-            distribute_coef = gen_nudge_coef(hgrid, rlmax=config.shapiro_zone_width)
+            distribute_coef = gen_nudge_coef(
+                hgrid, rlmax=config.shapiro_zone_width,
+                ocean_bnd_ids=config.ocean_bnd_ids
+            )
         else:
             distribute_coef = None
         # using a distribution coefficient simliar to the nudging coefficient
@@ -409,7 +414,7 @@ def stofs3d_atl_driver(
             outdir=f'{model_input_path}/{sub_dir}',
             start_date=config.startdate, rnday=config.rnday,
             ocean_bnd_ids=config.ocean_bnd_ids,
-            hycom_download_dir='/sciclone/schism10/feiye/STOFS3D-v8//HYCOM_DOWNLOADS_3Dth/',
+            # hycom_download_dir='/sciclone/schism10/feiye/STOFS3D-v8//HYCOM_DOWNLOADS_3Dth/',
         )
 
         os.chdir(run_dir)
