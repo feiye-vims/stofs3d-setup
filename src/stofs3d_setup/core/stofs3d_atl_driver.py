@@ -61,7 +61,7 @@ from ..ops.Prop.gen_tvd import gen_tvd_prop
 from ..ops.Bctides.bctides.bctides import Bctides  # temporary, bctides.py will be merged into pyschism
 # from pyschism.forcing.bctides import Bctides
 from ..ops.Source_sink.assemble_source_sink import assemble_source_sink
-from ..ops.Hotstart.gen_hotstart_nc import gen_hotstart_nc
+#from ..ops.Hotstart.gen_hotstart_nc import gen_hotstart_nc
 
 # Import configuration
 from ..config.stofs3d_atl_config import ConfigStofs3dAtlantic

@@ -198,6 +198,24 @@ class ConfigStofs3dAtlantic(BaseModel):
             bc_relax=[[None, None, None, None]],
             bc_const=[[None, None, None, None]],
         )
+    
+    @classmethod
+    def v1_capefear(cls):
+        '''Factory method to create a configuration for STOFS3D-v8's local test in Cape Fear Area'''
+        return cls(
+            ocean_bnd_ids=[0],
+            nudging_zone_width=0.05,  # default nudging zone; unit: degree
+            shapiro_zone_width=0.05,  # default shapiro zone # numerical diffusion
+            shapiro_tilt=0.02,  # default abrupt transition in the shapiro zone
+            feeder_info_file=None,
+            hgrid_without_feeders=None,
+            mandatory_sources_coor=rsf.v45_s2_mandatory_sources_coor, #related to feeder
+            relocate_source=False, #for unresolved small creeks
+            nwm_cache_folder=None, #similar to scratch in the personal configs set up
+            bc_flags=[[5, 3, 4, 4]], #elevation, velocity, t, s
+            bc_relax=[[None, None, 0.5, 0.5]],
+            bc_const=[[None, None, None, None]],
+        )
 
     @classmethod
     def v7p2(cls):
