@@ -10,7 +10,7 @@ or xarray DataArrays with a shared broadcasting shape, typically (time, elem).
 
 Key equations (per the project summary)
 --------------------------------------
-P_liq          = QRAIN + d(ACSNOM)/dt
+P_liq          = QRAIN + d(ACSNOM)/dt -d(ACCET)/dt
 S              = sum_k (smcmax_k - SOIL_M_k) * DZS_k
 I_storage_cap  = S / Δt
 I_rate_cap     = dksat_top
@@ -253,6 +253,7 @@ def compute_fluxes(
     dt: np.ndarray | float,
     QRAIN: np.ndarray,
     ACSNOM_accum: np.ndarray | None,
+    ACCET_accum: np.ndarray | None,
     UGDRNOFF_accum: np.ndarray | None,
     SOIL_M_layers: np.ndarray,
     SOIL_W_layers: np.ndarray | None,
@@ -272,6 +273,8 @@ def compute_fluxes(
         Liquid precipitation rate [m s^-1].
     ACSNOM_accum : (time, elem) or None
         Accumulated snowmelt depth [m]. If None, treated as zeros.
+    ACCET_accum : (time, elem) or None
+        Accumulated Evapotranspiration depth [m]. If None, treated as zeros.
     UGDRNOFF_accum : (time, elem) or None
         Accumulated unconfined groundwater runoff depth [m]. If None, q_perc=0.
     SOIL_M_layers : (layer, time, elem)
@@ -294,12 +297,17 @@ def compute_fluxes(
     """
     dt_arr = dt
 
-    # P_liq = QRAIN + d(ACSNOM)/dt
+    # P_liq = QRAIN + d(ACSNOM)/dt -d(ACCET)/dt
     if ACSNOM_accum is None:
         dACSNOM_dt = 0.0
     else:
         dACSNOM_dt = finite_diff_accum(ACSNOM_accum, dt_arr)
-    P_liq = as_array(QRAIN) + as_array(dACSNOM_dt)
+    if ACCET_accum is None:
+        dACCET_dt = 0.0
+    else:
+        dACCET_dt = finite_diff_accum(ACCET_accum, dt_arr)
+    P_liq = as_array(QRAIN) + as_array(dACSNOM_dt) - as_array(dACCET_dt)
+    P_liq = np.maximum(P_liq, 0.0)
 
     # q_perc from UGDRNOFF
     if UGDRNOFF_accum is None:

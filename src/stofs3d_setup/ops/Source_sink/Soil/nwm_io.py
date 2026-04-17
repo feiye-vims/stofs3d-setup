@@ -15,10 +15,13 @@ from __future__ import annotations
 
 import numpy as np
 import xarray as xr
-from typing import Dict
+# from typing import Dict
 import functools
 from glob import glob
+from matplotlib import pyplot as plt
 
+from pylib import read
+from pylib_experimental.schism_file import source_sink, TimeHistory
 from physics import SoilParams, compute_fluxes
 
 # -----------------------------------------------------------------------------
@@ -27,6 +30,7 @@ from physics import SoilParams, compute_fluxes
 ALIAS = {
     "QRAIN": ["QRAIN", "RAINRATE"],
     "ACSNOM": ["ACSNOM", "FSNO_ACCUM"],
+    "ACCET": ["ACCET"],
     "UGDRNOFF": ["UGDRNOFF"],
     "SOIL_M": ["SOIL_M", "SMOIS"],
     "SOIL_W": ["SOIL_W"],
@@ -54,16 +58,21 @@ def _find_var(ds: xr.Dataset, key: str) -> str:
 
 def _to_m(da: xr.DataArray) -> xr.DataArray:
     units = (da.attrs.get("units", "") or "").lower()
-    if "kg m" in units:
+    if "mm" in units or "kg m-2" in units:  # kg m^-2 is equivalent to mm for water
         return da / 1000.0
+    else:
+        raise ValueError(
+            f"Unexpected units for length variable: {units}"
+        )
     return da
 
 
 def _to_rate(da: xr.DataArray) -> xr.DataArray:
     units = (da.attrs.get("units", "") or "").lower()
-    if "kg m" in units:
+    if "mm s-1" in units:
         return da / 1000.0
-    return da
+    else:
+        raise ValueError(f"Unexpected units for rate variable: {units}")
 
 
 # -----------------------------------------------------------------------------
@@ -178,7 +187,7 @@ def open_ldasout(path_pattern: str, x_rng=None, y_rng=None, chunks=None) -> xr.D
         engine="netcdf4",
     )
     keep = []
-    for k in ["QRAIN", "ACSNOM", "UGDRNOFF", "SOIL_M", "SOIL_W", "SNEQV"]:
+    for k in ["QRAIN", "ACSNOM", "ACCET", "UGDRNOFF", "SOIL_M", "SOIL_W", "SNEQV"]:
         try:
             keep.append(_find_var(ds, k))
         except KeyError:
@@ -254,13 +263,14 @@ def select_layers_by_depth(DZS: xr.DataArray, depth: float, layer_dim='soil_laye
 def prepare_control_depth_inputs(ds_ldas: xr.Dataset, ds_soil: xr.Dataset, ds_wrf: xr.Dataset, depth: float = 0.4):
     """Prepare LDASOUT + soil param + WRF input data at specified control depth."""
 
-    v = {k: _find_var(ds_ldas, k) for k in ["QRAIN", "ACSNOM", "UGDRNOFF", "SOIL_M", "SOIL_W", "SNEQV"]}
+    v = {k: _find_var(ds_ldas, k) for k in ["QRAIN", "ACSNOM", "ACCET", "UGDRNOFF", "SOIL_M", "SOIL_W", "SNEQV"]}
     t = ds_ldas.indexes["time"]
     dt = np.diff(t.values).astype("timedelta64[s]").astype(float)
     dt = np.r_[dt[0], dt]
 
     QRAIN = _to_rate(ds_ldas[v["QRAIN"]])
     ACSNOM = _to_m(ds_ldas[v["ACSNOM"]])
+    ACCET = _to_m(ds_ldas[v["ACCET"]])
     UGDRNOFF = _to_m(ds_ldas[v["UGDRNOFF"]])
     SNEQV = _to_m(ds_ldas[v["SNEQV"]])
     SOIL_M = ds_ldas[v["SOIL_M"]]
@@ -288,7 +298,7 @@ def prepare_control_depth_inputs(ds_ldas: xr.Dataset, ds_soil: xr.Dataset, ds_wr
         imperv=imperv.values,
     )
 
-    return dt, QRAIN, ACSNOM, UGDRNOFF, SM_ctl, SW_ctl, SNEQV, soil_params
+    return dt, QRAIN, ACSNOM, ACCET, UGDRNOFF, SM_ctl, SW_ctl, SNEQV, soil_params
 
 
 # -----------------------------------------------------------------------------
@@ -303,7 +313,7 @@ def compute_from_nwm(
     ds_ldas, xy_slices = open_ldasout(ldas_pattern, x_rng=x_rng, y_rng=y_rng)
     ds_soil = open_soilparams(soil_param_path, xy_slices=xy_slices)
     ds_wrf = open_wrfinput(wrfinput_path, xy_slices=xy_slices)
-    dt, QRAIN, ACS, UG, SM, SW, SNEQV, soil = prepare_control_depth_inputs(ds_ldas, ds_soil, ds_wrf, depth)
+    dt, QRAIN, ACS, ACCET, UG, SM, SW, SNEQV, soil = prepare_control_depth_inputs(ds_ldas, ds_soil, ds_wrf, depth)
 
     # import matplotlib.pyplot as plt
 
@@ -358,7 +368,7 @@ def compute_from_nwm(
         rest = int(da_t.size // max(L * T, 1))
         return da_t.values.reshape((L, T, rest))
 
-    QRAIN_f, ACS_f, UG_f = _flat(QRAIN), _flat(ACS), _flat(UG)
+    QRAIN_f, ACS_f, ACCET_f, UG_f = _flat(QRAIN), _flat(ACS), _flat(ACCET), _flat(UG)
     SM_f, SW_f, SNEQV_f = _flat_layers(SM), _flat_layers(SW), _flat(SNEQV)
 
     soil_flat = SoilParams(
@@ -368,7 +378,8 @@ def compute_from_nwm(
         imperv=soil.imperv.reshape((-1,)),
     )
 
-    q_surf, q_perc, diag = compute_fluxes(dt, QRAIN_f, ACS_f, UG_f, SM_f, SW_f, SNEQV_f, soil_flat, use_smooth_freeze)
+    q_surf, q_perc, diag = compute_fluxes(
+        dt, QRAIN_f, ACS_f, ACCET_f, UG_f, SM_f, SW_f, SNEQV_f, soil_flat, use_smooth_freeze)
 
     shp = (QRAIN.sizes["time"],) + shape
     q_surf = xr.DataArray(q_surf.reshape(shp), dims=("time", *space_dims),
@@ -379,50 +390,296 @@ def compute_from_nwm(
     return q_surf, q_perc, diag
 
 
-if __name__ == "__main__":
-    from pylib import read
-    from matplotlib import pyplot as plt
-    schism_gd = read('/sciclone/schism10/feiye/STOFS3D-v8/I29f/hgrid.gr3')
-    x_lower_left, y_lower_left = lonlat_to_ldas_xy(schism_gd.x.min(), schism_gd.y.min())
-    x_upper_right, y_upper_right = lonlat_to_ldas_xy(schism_gd.x.max(), schism_gd.y.max())
+def plot_stat(q_dict, schism_gd, stat='mean'):
+    """
+    q_dict: dict of {q_name: {'nwm': xr.DataArray, 'schism': xr.DataArray}}
+    stat: str, e.g., 'mean', 'max', 'min'
+    """
+    fig, ax = plt.subplots(2, 2, figsize=(14, 6))
+    ax = ax.flatten()
+
+    for i, (q_name, q_data) in enumerate(q_dict.items()):
+        plt.sca(ax[i*2])
+        getattr(q_data['nwm'], stat)(dim='time', skipna=True).plot()
+        plt.title(f"{q_name} ({stat}) - NWM")
+
+        plt.sca(ax[i*2+1])
+        vals = getattr(q_data['schism'], stat)(dim='time', skipna=True).values
+        schism_gd.plot(fmt=1, value=vals)
+        plt.title(f"{q_name} ({stat}) - SCHISM")
+
+    plt.show()
+
+
+def plot_source_scatter(
+    ss: source_sink,
+    gd,
+    stat='mean',
+    ax=None,
+    size_scale: float = 20.0,
+    min_size: float = 1.0,
+    use_abs_size: bool = True,
+    cmap: str = "jet",
+    title: str | None = None,
+    cbar_label: str = "value",
+):
+    """
+    Scatter plot on SCHISM element centers.
+
+    Parameters
+    ----------
+    ss: source_sink instance containing the source/sink data to plot.
+    gd: SCHISM grid object with xctr, yctr attributes for element centers.
+    stat: str, e.g., 'mean', 'max', 'min' to reduce time dimension.
+    ax : matplotlib axis or None
+    size_scale : float
+        Scale factor for marker size.
+    min_size : float
+        Minimum marker size.
+    use_abs_size : bool
+        If True, marker size uses abs(values).
+    cmap : str
+        Colormap for values.
+    title : str or None
+    cbar_label : str
+        Label for colorbar.
+    """
+    if not hasattr(gd, "xctr") or not hasattr(gd, "yctr"):
+        gd.compute_ctr()  # ensure xctr, yctr exist
+
+    ele_idx = ss.source_sink_in.ele_groups[0] - 1  # convert to 0-based index
+    x = np.asarray(gd.xctr[ele_idx], dtype=float)
+    y = np.asarray(gd.yctr[ele_idx], dtype=float)
+    values = np.asarray(getattr(ss.vsource.data, stat)(axis=0), dtype=float)
+
+    if not (len(x) == len(y) == len(values)):
+        raise ValueError("x, y, and values must have the same length.")
+
+    # size scaling
+    magnitudes = np.abs(values) if use_abs_size else values
+    max_mag = max(np.nanmax(magnitudes), 1e-12)
+    sizes = min_size + size_scale * magnitudes / max_mag
+
+    # plot
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(10, 8))
+    else:
+        fig = ax.figure
+
+    sc = ax.scatter(x, y, s=sizes, c=values, cmap=cmap, alpha=0.7)
+
+    cbar = fig.colorbar(sc, ax=ax)
+    cbar.set_label(cbar_label)
+
+    ax.set_aspect("equal")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+
+    if title:
+        ax.set_title(title)
+    plt.show()
+
+    return fig, ax
+
+
+def get_schism_grid_and_ldas_bounds(hgrid_path):
+    """
+    Read SCHISM grid and return LDAS x/y bounds covering the grid.
+    """
+    schism_gd = read(hgrid_path)
+
+    x_lower_left, y_lower_left = lonlat_to_ldas_xy(
+        schism_gd.x.min(), schism_gd.y.min()
+    )
+    x_upper_right, y_upper_right = lonlat_to_ldas_xy(
+        schism_gd.x.max(), schism_gd.y.max()
+    )
+
+    x_bounds = (x_lower_left, x_upper_right)
+    y_bounds = (y_lower_left, y_upper_right)
+    return schism_gd, x_bounds, y_bounds
+
+
+def interpolate_fields_to_schism_faces(schism_gd, fields):
+    """
+    Interpolate x/y gridded xarray fields onto SCHISM element centers.
+    Returns a dict like:
+        {
+            "q_surf": {"nwm": ..., "schism": ...},
+            "q_perc": {"nwm": ..., "schism": ...},
+        }
+    """
+    schism_gd.compute_ctr()
+    schism_xctr_ldas, schism_yctr_ldas = lonlat_to_ldas_xy(
+        schism_gd.xctr, schism_gd.yctr
+    )
+
+    out = {}
+    for name, da in fields.items():
+        if name == "diag":
+            continue
+
+        da_schism = da.interp(
+            x=xr.DataArray(schism_xctr_ldas, dims="nface"),
+            y=xr.DataArray(schism_yctr_ldas, dims="nface"),
+            method="linear",
+        )
+        out[name] = {"nwm": da, "schism": da_schism}
+
+    return out
+
+
+def prepare_schism_face_areas_in_m2(schism_gd):
+    """
+    Project SCHISM grid to an equal-area projection and compute face areas.
+    Modifies schism_gd in place.
+    """
+    schism_gd.proj(prj0="EPSG:4326", prj1="esri:102008")
+    schism_gd.compute_area()
+
+
+def build_vsource_from_qsurf(
+    schism_gd,
+    q_surf_schism,
+    zero_tol=1e-10,
+    temperature_value=-9999.0,
+    salinity_value=0.0,
+):
+    """
+    Convert interpolated q_surf (time, nface) into SCHISM source_sink.
+
+    Assumptions:
+    - q_surf_schism is in m/s over each face
+    - multiplying by face area converts to m^3/s
+    """
+    vs_time = (
+        q_surf_schism.time.values - q_surf_schism.time.values[0]
+    ).astype("timedelta64[s]").astype(int)
+
+    q_data = q_surf_schism.values  # shape (time, nface)
+
+    mask_all_nan = np.all(np.isnan(q_data), axis=0)
+    mask_all_zero = np.all(np.abs(q_data) < zero_tol, axis=0)
+    valid_mask = ~mask_all_nan & ~mask_all_zero
+    valid_indices = np.where(valid_mask)[0]
+
+    ele_1_based = valid_indices + 1
+    q_data_valid = q_data[:, valid_indices]
+
+    if not np.isfinite(q_data_valid).all():
+        raise ValueError("Non-finite values found in interpolated q_surf data.")
+
+    prepare_schism_face_areas_in_m2(schism_gd)
+    face_areas = schism_gd.area[valid_indices]
+
+    # m/s -> m^3/s
+    vs_data = q_data_valid * face_areas
+
+    vsource = TimeHistory(
+        data_array=np.c_[vs_time, vs_data],
+        columns=ele_1_based.tolist(),
+    )
+
+    filler = np.ones((vsource.n_time, vsource.n_station), dtype=float)
+
+    msource = [
+        TimeHistory(
+            data_array=np.c_[vsource.time, filler * temperature_value],
+            columns=ele_1_based.tolist(),
+        ),
+        TimeHistory(
+            data_array=np.c_[vsource.time, filler * salinity_value],
+            columns=ele_1_based.tolist(),
+        ),
+    ]
+
+    ss = source_sink(vsource=vsource, vsink=None, msource=msource)
+    return ss, vsource, valid_indices
+
+
+def print_vsource_diagnostics(vsource):
+    """
+    Print useful percentile diagnostics for a SCHISM TimeHistory vsource.
+    """
+    vals = np.asarray(vsource.data).ravel()
+    vals = vals[np.isfinite(vals)]
+
+    print("all-values percentiles:", np.percentile(vals, [90, 95, 99, 99.9, 100]))
+
+    vals_nz = vals[vals > 0]
+    if vals_nz.size > 0:
+        print("nonzero percentiles:", np.percentile(vals_nz, [90, 95, 99, 99.9, 100]))
+    else:
+        print("nonzero percentiles: no positive values found")
+
+    per_source_max = np.nanmax(vsource.data, axis=0)
+    print(
+        "per-source-max percentiles:",
+        np.percentile(per_source_max, [90, 95, 99, 99.9, 100]),
+    )
+
+    total_inflow = np.nansum(vsource.data, axis=1)
+    print("total inflow max:", total_inflow.max())
+    print(
+        "total inflow percentiles:",
+        np.percentile(total_inflow, [90, 95, 99, 99.9, 100]),
+    )
+
+
+def make_quicklook_plots(ss_vs_q_surf, schism_gd, q_dict, stat="max"):
+    """
+    Generate quick plots for source distribution and interpolated field stats.
+    """
+    plot_source_scatter(ss_vs_q_surf, schism_gd, stat=stat)
+    plot_stat(q_dict, schism_gd, stat=stat)
+    plt.show()
+
+
+def main():
+    hgrid_path = "/sciclone/schism10/feiye/STOFS3D-v8/I09y/hgrid.gr3"
+    output_dir = (
+        "/sciclone/schism10/feiye/STOFS3D-v8/I09y/"
+        "Source_sink/source_soil_framework/"
+    )
+
+    ldas_pattern = (
+        "/sciclone/schism10/feiye/STOFS3D-v8/NWM/CONUS/netcdf/"
+        "LDASOUT/for_2021_Ida/*.LDASOUT_DOMAIN1"
+    )
+    soil_param_path = (
+        "/sciclone/schism10/feiye/STOFS3D-v8/NWM/"
+        "Parameters/v3.0_full_parameters/soilproperties_CONUS_FullRouting.nc"
+    )
+    wrfinput_path = (
+        "/sciclone/schism10/feiye/STOFS3D-v8/NWM/"
+        "Parameters/v3.0_full_parameters/wrfinput_CONUS.nc"
+    )
+
+    schism_gd, x_bounds, y_bounds = get_schism_grid_and_ldas_bounds(hgrid_path)
 
     q_surf, q_perc, diag = compute_from_nwm(
-        (x_lower_left, x_upper_right),
-        (y_lower_left, y_upper_right),
-        ldas_pattern="/sciclone/schism10/feiye/STOFS3D-v8/NWM/CONUS/netcdf/LDASOUT/2018/*.LDASOUT_DOMAIN1",
-        soil_param_path=("/sciclone/schism10/feiye/STOFS3D-v8/NWM/"
-                         "Parameters/v3.0_full_parameters/soilproperties_CONUS_FullRouting.nc"),
-        wrfinput_path="/sciclone/schism10/feiye/STOFS3D-v8/NWM/Parameters/v3.0_full_parameters/wrfinput_CONUS.nc",
+        x_bounds, y_bounds,
+        ldas_pattern=ldas_pattern, soil_param_path=soil_param_path, wrfinput_path=wrfinput_path,
         depth=0.4,                # control depth in meters
         use_smooth_freeze=True,   # recommended
     )
 
-    # interpolate to SCHISM grid
-    schism_gd.compute_ctr()
-    schism_xctr_ldas, schism_yctr_ldas = lonlat_to_ldas_xy(schism_gd.xctr, schism_gd.yctr)
-    q_dict = {
-        "q_surf": {'nwm': q_surf, 'schism': None},
-        "q_perc": {'nwm': q_perc, 'schism': None }
-    }
-    for q_name, q_data in q_dict.items():
-        q = q_data['nwm']
-        q_schism = q.interp(
-            x=xr.DataArray(schism_xctr_ldas, dims="nface"),
-            y=xr.DataArray(schism_yctr_ldas, dims="nface"),
-            method="linear"
-        )
-        q_data['schism'] = q_schism
+    q_dict = interpolate_fields_to_schism_faces(
+        schism_gd, {"q_surf": q_surf, "q_perc": q_perc},
+    )
 
-    fig, ax = plt.subplots(2, 2, figsize=(14, 6))
-    ax = ax.flatten()
-    for i, (q_name, q_data) in enumerate(q_dict.items()):
-        plt.sca(ax[i*2])
-        plt.title(f"{q_name} (time=0) - Original LDAS Grid")
-        q_data['nwm'].isel(time=0).plot()
+    ss_vs_q_surf, vs_q_surf, valid_indices = build_vsource_from_qsurf(
+        schism_gd=schism_gd,
+        q_surf_schism=q_dict["q_surf"]["schism"],
+        zero_tol=1e-10,
+    )
 
-        plt.sca(ax[i*2+1]) 
-        plt.title(f"{q_name} (time=0) - Interpolated to SCHISM Grid")
-        schism_gd.plot(fmt=1, value=q_data['schism'].isel(time=0).values)
-    plt.show()
+    print_vsource_diagnostics(vs_q_surf)
+    make_quicklook_plots(ss_vs_q_surf, schism_gd, q_dict, stat="max")
 
-    print('Done.')
+    ss_vs_q_surf.writer(output_dir)
+    print("Done.")
+
+
+if __name__ == "__main__":
+    main()

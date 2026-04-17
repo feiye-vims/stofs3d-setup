@@ -4,13 +4,14 @@ from pathlib import Path
 from typing import Union, Iterable, Optional
 
 
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 
 def read_vgrid(vgrid_file):
     with open(vgrid_file, "r") as f:
-        lines = [l.strip() for l in f if l.strip()]
-
+        lines = [l.strip().split("!")[0].strip() for l in f if l.strip()]
+    
     idx = 0
     ivcor = int(lines[idx]); idx += 1
     if ivcor != 2:
@@ -31,7 +32,7 @@ def read_vgrid(vgrid_file):
 
     assert lines[idx].startswith("S")
     idx += 1
-    theta_f, theta_b, hc = map(float, lines[idx].split())
+    hc, theta_b, theta_f = map(float, lines[idx].split())
     idx += 1
 
     sigma = []
@@ -48,6 +49,7 @@ def read_vgrid(vgrid_file):
         "theta_f": theta_f,
         "theta_b": theta_b,
         "hc": hc,
+        "h_s": h_s,
     }
 
 
@@ -59,15 +61,37 @@ def compute_vertical_coords(vgrid, depth):
     theta_f = vgrid["theta_f"]
     theta_b = vgrid["theta_b"]
     hc = vgrid["hc"]
+    h_s = vgrid["h_s"]
+    nvrt = vgrid["nvrt"]
+    kz = vgrid["kz"]
+    z_levels = vgrid["z_levels"]
+    
+    z = np.ones(nvrt, ) * np.nan
 
     sinh_tf = np.sinh(theta_f) if theta_f != 0 else 1.0
     tanh_half = np.tanh(theta_f * 0.5)
 
+    h_tilde = min(h, h_s)
+
     cs = (1 - theta_b) * np.sinh(theta_f * sigma) / sinh_tf \
        + theta_b * (np.tanh(theta_f * (sigma + 0.5)) - tanh_half) / (2 * tanh_half)
 
-    z_sigma = etal * (1 + sigma) + hc * sigma + (h-hc) * cs
-    return z_sigma
+    z_sigma = etal * (1 + sigma) + hc * sigma + (h_tilde - hc) * cs
+
+    if h > h_s:
+        if h > -z_levels[0]:
+            raise ValueError(f"Depth {h} exceeds maximum Z level {z_levels[0]}")
+        # find bottom index in Z levels
+        for k in range(kz):
+            if h >= -z_levels[k]:  # z_levels are negative depths
+                z[k] = -h
+                z[k+1:kz] = z_levels[k+1:kz]
+                break
+        assert z[kz-1] == z_sigma[0], "bottom of S must match top of Z"
+
+    z[kz:] = z_sigma[1:]  # S levels start from index kz
+
+    return z
 
 
 def plot_vgrid(vgrid_file, depths=(10, 50, 200), label_layers=False):
@@ -99,13 +123,12 @@ def plot_vgrid(vgrid_file, depths=(10, 50, 200), label_layers=False):
 
 
 def write_schism_vgrid_in(
-    nvrt: int,
+    nvrt_S: int,
     outpath: Union[str, Path] = "vgrid.in",
     *,
     # keep template constants fixed per your request
-    kz: int = 1,
     hs: float = 5000.0,
-    z_level: float = -5000.0,
+    z_level: Iterable[float] = [-5000.0],  
     theta_f: float = 10.0,
     theta_b: float = 0.0,
     hc: float = 5.0,
@@ -120,8 +143,8 @@ def write_schism_vgrid_in(
 
     Parameters
     ----------
-    nvrt : int
-        Total number oGf vertical levels (must be >= 2 since kz=1 and need at least 1 sigma level).
+    nvrt_S : int
+        Total number of sigma levels
     outpath : str|Path
         Output filename.
     theta_f (float):
@@ -155,49 +178,42 @@ def write_schism_vgrid_in(
     -------
     Path to written file.
     """
+    kz = len(z_level)  # override kz based on provided z_levels
+    nvrt = nvrt_S + kz - 1  # total levels = sigma levels + z levels - 1 (since sigma starts at kz+1)
+
     if nvrt < 2:
-        raise ValueError("nvrt must be >= 2 (kz=1 leaves at least 1 sigma level).")
-    if kz != 1:
-        raise ValueError("This helper is designed for kz=1 as requested.")
-    nsig = nvrt - kz + 1
-    if nsig < 1:
-        raise ValueError("nvrt too small: must satisfy nvrt - kz >= 1.")
+        raise ValueError("nvrt_S must be at least 2 to have meaningful sigma levels")
     
     # Linear sigma: i=1 -> -1, i=nvrt -> 0
     if bottom_cluster_p is not None:
-        s = np.linspace(0, 1, nsig)
+        s = np.linspace(0, 1, nvrt_S)
         sigma = -1.0 + (1.0 - (1.0 - s) ** bottom_cluster_p)
     else:
-        sigma = -1.0 + (np.arange(nvrt) / (nvrt - 1.0))  # length nvrt
+        sigma = -1.0 + (np.arange(nvrt_S) / (nvrt_S - 1.0))  # length nvrt
 
+    os.makedirs(Path(outpath).parent, exist_ok=True)
     with open(outpath, "w") as f:
-        f.write("2\n")
-        f.write(f"{nvrt:d} {kz} {hs}\n")  # total levels, kz=1, h_s=5000
-        f.write("Z levels \n")
-        f.write(f"{kz} {z_level} \n")
-        f.write("S levels \n")
+        f.write("2 !ivcor (1: LSC2 ; 2: SZ)\n")
+        f.write(f"{nvrt:d} {kz} {hs} !nvrt(=Nz); kz (# of Z-levels); hs (transition depth between S and Z)\n")
+        f.write("Z levels !Z-levels in the lower portion\n")
+        for i, z in enumerate(z_level, start=1):
+            comment_str = "!z-coordinate of the last Z-level must match -hs" if i == kz else ""
+            f.write(f"{i} {z} {comment_str}\n")
+        f.write("S levels !S-levels in the upper portion\n")
         f.write(f"{hc} {theta_b} {theta_f}\n")
-        for i, s in enumerate(sigma, start=1):
-            f.write(f"{i} {float_fmt.format(s)}\n")
+        for i, s in enumerate(sigma):
+            f.write(f"{i+kz} {float_fmt.format(s)}\n")
 
     return outpath
 
 
-# Example usage:
-# write_schism_vgrid_in(25, "vgrid_25.in")                 # uniform sigma like your template
-# write_schism_vgrid_in(41, "vgrid_41.in")                 # uniform sigma for nvrt=41
-# write_schism_vgrid_in(41, "vgrid_41_bot.in", bottom_cluster_p=3.0)  # bottom-refined sigma
-
-
-
 # ===== run =====
-vgrid_file = "/sciclone/schism10/feiye/STOFS3D-v8/I35/vgrid.in"
+vgrid_file = "/sciclone/schism10/feiye/STOFS3D-v8/I37b/vgrid.in"
 write_schism_vgrid_in(
-    nvrt=70,
+    nvrt_S=40,
     outpath=vgrid_file ,
-    kz=1,
-    hs=5000.0,
-    z_level=-5000.0,
+    hs=30.0,
+    z_level=[-5000.0, -4000, -3000, -2000, -1000, -500, -200, -100, -80, -70, -60, -55, -50, -46, -45, -42.5, -40, -38, -36, -34, -33, -32, -31, -30],  # only first one used since kz=1
     theta_f=4.0,
     theta_b=0.75,
     hc=5.0,
