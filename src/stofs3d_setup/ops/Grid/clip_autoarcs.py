@@ -13,12 +13,14 @@ import os
 import geopandas as gpd
 
 # ------------------------- inputs ---------------------------
-WDIR = '/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v31/Clip/'
+WDIR = '/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v32/Clip/'
 CRS = 'esri:102008'
 
 # manual polygons defined in the coastal coverage,
-# may need to delete some polygons so that they are treated as watershed,
-# check coastal_remove coverage for polygons to be removed
+# may need to delete some polygons so that they are treated as watershed
+# and admit auto arcs,
+# For STOFS-3D Atlantic, use the coastal_remove coverage to intersect (select)
+# and remove polygons from the coastal map before exporting it to shapefile
 coastal_shpfile = f'{WDIR}/inputs/coastal.shp'  # esri:102008
 
 # land boundary + coastal, i.e., watershed region between the coastline and the land boundary
@@ -32,6 +34,8 @@ LEVEE_BUF_DISTANCE = 5
 # used to select un-refined polygons, which are allowed to be intersected by auto arcs
 select_nearshore_shpfile = f'{WDIR}/inputs/select_nearshore_v4.shp'  # esri:102008
 
+manual_clipping_in_qgis = True
+# not needed if you clip the auto arcs manually in qgis,
 auto_arcs_file = f'{WDIR}/inputs/total_arcs.shp'  # lonlat
 auto_polys_file = f'{WDIR}/inputs/total_river_polys.shp'  # lonlat
 # ------------------------- end inputs ---------------------------
@@ -78,8 +82,12 @@ levee_buf.to_file(f'{output_dir}/levee_buf.shp')
 watershed = watershed.overlay(levee_buf, how='difference').dissolve()
 watershed.to_file(f'{output_dir}/watershed.shp')
 
-# add additional watershed region (manually specified) to the watershed
-print('break here if using qgis for clipping, which is faster')
+if manual_clipping_in_qgis:
+    print('exited after watershed.shp is created, please clip auto arcs manually in qgis')
+    exit(0)
+
+# clipping with this script is slower than doing it manually in qgis, so I recommend doing it manually in qgis,
+# but the code is here if you want to try it
 watershed = gpd.read_file(f'{output_dir}/watershed.shp')
 
 # clip the auto arcs to the watershed boundary

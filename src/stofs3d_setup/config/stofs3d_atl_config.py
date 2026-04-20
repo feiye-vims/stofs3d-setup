@@ -309,6 +309,41 @@ class ConfigStofs3dAtlantic(BaseModel):
         )
 
     @classmethod
+    def v7p4(cls):
+        '''Factory method to create a configuration for STOFS3D-v7.4 3D setup'''
+        return cls(
+            ocean_bnd_ids=[0, 1],
+            elev2d_uniform_shift=-0.42,  # add a uniform shift to elev2D
+            nudging_zone_width=7.3,  # default nudging zone
+            shapiro_zone_width=11.5,  # default shapiro zone
+            shapiro_tilt=3.5,  # default abrupt transition in the shapiro zone
+            feeder_info_file=None,
+            hgrid_without_feeders=None,
+            relocate_source=True,
+            mandatory_sources_coor=rsf.v19p2_for_sms_v27_mandatory_sources_coor,
+            nwm_cache_folder=None,
+            source_ele_replace_dict={
+                # 53: 3552194,
+            },
+            bc_flags=[
+                [5, 5, 4, 4],  # Atlantic Ocean
+                [5, 5, 4, 4],  # Gulf of St. Lawrence
+                [0, 1, 1, 2],  # St. Lawrence River
+            ],
+            bc_const=[
+                [None, None, None, None],  # Atlantic Ocean
+                [None, None, None, None],  # Gulf of St. Lawrence
+                [None, None, None, 0.0],  # St. Lawrence River
+            ],
+            bc_relax=[  # relaxation timescale for each boundary variable
+                [None, None, 0.5, 0.5],  # Atlantic Ocean
+                [None, None, 0.5, 0.5],  # Gulf of St. Lawrence
+                [None, None, 0.01, 1.0],  # St. Lawrence River
+            ],
+            tvd_regions=None
+        )
+
+    @classmethod
     def v8(cls):
         '''Factory method to create a configuration for STOFS3D-v8 3D setup'''
         return cls(
