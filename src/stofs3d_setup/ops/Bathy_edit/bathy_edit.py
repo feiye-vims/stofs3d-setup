@@ -43,6 +43,7 @@ IMPLEMENTED_TASKS = [  # order matters
     'Levee',  # set levees height based on National Levee Database
     'Levee_dev',  # a development version of levee setting, not fully tested, using 2025 MTG levee data and not forcing min height
     'xGEOID',  # convert from NAVD88 to xGEOID, use viz (gulf has memory issues); deprecated, use Felicio's workflow
+    'xGEOID_cmvd',  # convert from NAVD88 to xGEOID using Felicio's alternative tool cmvd, much faster than vdatum
     'xGEOID_from_diff',  # convert from NAVD88 to xGEOID based on dp difference, must be the same (x, y)
     'Chart',  # load chart depth, the chart has been converted to xGEOID
     'Dredge',  # dredge the channels made by RiverMapper, relative, datum doesn't matter
@@ -209,6 +210,13 @@ def bathy_edit(wdir: Path, hgrid_fname: Path, tasks: list = None):
             diag_output=f'{wdir}/{hgrid_base_name}.2dm')
         print("Finihsed converting the vdatum to xGEOID.\n")
 
+    if 'xGEOID_cmvd' in tasks:  # convert from NAVD88 to xGEOID using Felicio's alternative tool cmvd
+        from xGEOID_cmvd.xGEOID_cmvd import convert2xgeoid_cmvd
+        hgrid_base_name += '_xGEOID_cmvd'
+        hgrid_obj = convert2xgeoid_cmvd(hgrid_obj)
+        hgrid_obj.grd2sms(f'{wdir}/xGEOID_cmvd/{hgrid_base_name}.2dm')
+        print("Finished converting the vdatum to xGEOID using cmvd.\n")
+
     if 'xGEOID_from_diff' in tasks:  # convert from NAVD88 to xGEOID based on dp difference
         hgrid_diff = schism_read(f'{wdir}/xGEOID_from_diff/hgrid_xGEOID20b_dp_minus_NAVD_dp.gr3')
         hgrid_obj.dp += hgrid_diff.dp
@@ -294,7 +302,7 @@ def sample_usage():
     HGRID_FNAME = Path(  # Typically, this is the DEM-loaded hgrid, use absolute path
         '/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v32/Bathy_edit/DEM_loading/hgrid.ll.dem_loaded.mpi.gr3'
     )
-    TASKS = {'Regional_tweaks', 'Temporary_Fix_v7.2'}  # {'Regional_tweaks', 'NCF', 'Levee_dev', 'xGEOID'}  # DEFAULT_TASKS
+    TASKS = {'xGEOID_cmvd'}  # {'Regional_tweaks', 'NCF', 'Levee_dev', 'xGEOID'}  # DEFAULT_TASKS
 
     bathy_edit(wdir=WDIR, hgrid_fname=HGRID_FNAME, tasks=TASKS)
 
