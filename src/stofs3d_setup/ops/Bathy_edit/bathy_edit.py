@@ -52,7 +52,7 @@ IMPLEMENTED_TASKS = [  # order matters
                                     # from bank to thalweg for river transects defined by RiverMapper,
                                     # relative, vertical datum doesn't matter
     'Feeder',  # set feeder channel depth, relative, vertical datum doesn't matter
-    'Temporary_Fix_v7.2',  # tweak depths around Bayou Lafourche
+    'Temporary_Fix_v7p2',  # tweak depths around Bayou Lafourche
     'Temporary_Fix_v7.2.1',  # tweak depth around Philadelphia International Airport
 ]
 
@@ -297,16 +297,16 @@ def bathy_edit(wdir: Path, hgrid_fname: Path, tasks: list = None):
         hgrid_obj.save(f'{wdir}/Feeder/{hgrid_base_name}.gr3')
         print("Finished setting feeder dp.\n")
 
-    if 'Temporary_Fix_v7.2' in tasks:  # tweak depths around Bayou Lafourche
+    if 'Temporary_Fix_v7p2' in tasks:  # tweak depths around Bayou Lafourche
         from Temporary_Fix_v7p2.temp_fix_v7p2 import temp_fix_v7p2
         reference_hgrid_file = ('/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v32/Bathy_edit/'
                                 'DEM_loading_for_temp_fix_v7p2/hgrid.ll.dem_loaded.mpi.gr3')
         hgrid_base_name += '_temp_fix_v7.2'
         hgrid_obj = temp_fix_v7p2(
-            hgrid_obj, wdir=f'{wdir}/Temporary_Fix_v7.2/', reference_hgrid_file=reference_hgrid_file
+            hgrid_obj, wdir=f'{wdir}/Temporary_Fix_v7p2/', reference_hgrid_file=reference_hgrid_file
         )
-        hgrid_obj.grd2sms(f'{wdir}/Temporary_Fix_v7.2/{hgrid_base_name}.2dm')
-        print("Finished setting temporary fix for v7.2.\n")
+        hgrid_obj.grd2sms(f'{wdir}/Temporary_Fix_v7p2/{hgrid_base_name}.2dm')
+        print("Finished setting temporary fix for v7p2.\n")
 
     if 'Temporary_Fix_v7.2.1' in tasks:  # tweaks around Philadelphia International Airport and Bay of Fundy
         from Regional_tweaks.regional_tweaks import shape_tweak
@@ -325,19 +325,16 @@ def sample_usage():
     '''
     Sample usage of the bathy_edit function.
     '''
-    WDIR = Path('/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v32/Bathy_edit/')  # working directory, use absolute path
+    WDIR = Path('/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v32/Bathy_edit_32b/')  # working directory, use absolute path
     HGRID_FNAME = Path(  # Typically, this is the DEM-loaded hgrid, use absolute path
         '/sciclone/schism10/hjyoo/task/task10_Atlantic/RUN100a/src/hgrid/Bathy_edit/DEM_loading/'
         'hgrid.ll.dem_loaded.mpi_replace_NY_Harbor_by_Joseph_DEM.gr3'
     )
-    # TASKS = {
-    #     'Regional_tweaks', 'NCF', 'Levee_dev', 'xGEOID_cmvd',
-    #     'Ensure_channel_connectivity',
-    #     'Temporary_Fix_v7.2', 'Temporary_Fix_v7.2.1'
-    # }  # tasks to be performed, choose from IMPLEMENTED_TASKS, order matters
-
-    HGRID_FNAME = '/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v32/Bathy_edit/hgrid_dem_edit.ll'
-    TASKS = ['Ensure_channel_connectivity']  # just ensure channel connectivity, for testing
+    TASKS = {
+        'Regional_tweaks', 'NCF', 'Levee_dev', 'xGEOID',
+        'Ensure_channel_connectivity',
+        'Temporary_Fix_v7p2', 'Temporary_Fix_v7.2.1'
+    }  # tasks to be performed, choose from IMPLEMENTED_TASKS, order matters
 
     bathy_edit(wdir=WDIR, hgrid_fname=HGRID_FNAME, tasks=TASKS)
 
