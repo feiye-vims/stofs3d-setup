@@ -41,13 +41,17 @@ IMPLEMENTED_TASKS = [  # order matters
     'Regional_tweaks',  # set minimum depth in regions specified in regional_tweaks
     'NCF',  # load NCF (National Channel Framework) maintained depth
     'Levee',  # set levees height based on National Levee Database
-    'Levee_dev',  # a development version of levee setting, not fully tested, using 2025 MTG levee data and not forcing min height
+    'Levee_dev',  # a development version of levee setting, not fully tested,
+                  # using 2025 MTG levee data and not forcing min height
     'xGEOID',  # convert from NAVD88 to xGEOID, use viz (gulf has memory issues); deprecated, use Felicio's workflow
     'xGEOID_cmvd',  # convert from NAVD88 to xGEOID using Felicio's alternative tool cmvd, much faster than vdatum
     'xGEOID_from_diff',  # convert from NAVD88 to xGEOID based on dp difference, must be the same (x, y)
     'Chart',  # load chart depth, the chart has been converted to xGEOID
-    'Dredge',  # dredge the channels made by RiverMapper, relative, datum doesn't matter
-    'Feeder',  # set feeder channel depth, relative, datum doesn't matter
+    'Dredge',  # dredge the channels made by RiverMapper, relative, vertical datum doesn't matter
+    'Ensure_channel_connectivity',  # ensure channel connectivity by ensure a minimum elevation drop
+                                    # from bank to thalweg for river transects defined by RiverMapper,
+                                    # relative, vertical datum doesn't matter
+    'Feeder',  # set feeder channel depth, relative, vertical datum doesn't matter
     'Temporary_Fix_v7.2',  # tweak depths around Bayou Lafourche
     'Temporary_Fix_v7.2.1',  # tweak depth around Philadelphia International Airport
 ]
@@ -253,6 +257,28 @@ def bathy_edit(wdir: Path, hgrid_fname: Path, tasks: list = None):
         hgrid_obj.write_hgrid(f'{wdir}/Dredge/{hgrid_base_name}.gr3')
         print("Finished loading dredging depth.\n")
 
+    if 'Ensure_channel_connectivity' in tasks:  # ensure channel connectivity by dredging river transects defined by RiverMapper
+        from Ensure_channel_connectivity.ensure_channel_connectivity import ensure_channel_connectivity
+        DREDGE_DEPTH = 1
+        hgrid_obj = ensure_channel_connectivity(
+            hgrid_obj, min_channel_depth=DREDGE_DEPTH,
+            river_extra_info_map_file=(
+                '/sciclone/schism10/Hgrid_projects/STOFS3D-v7/v19_RiverMapper/Outputs/'
+                'bora_v19.1.v19_ie_v18_3_nwm_clipped_in_cudem_missing_tiles_20-core/'
+                'total_river_arcs_extra.map'
+            ),
+            region_gdf_file=(
+                '/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v32/Clip/outputs/watershed.shp'
+            ),
+            exclude_region_gdf_file_list=[
+                '/sciclone/schism10/feiye/STOFS3D-v8/I15_v7/Bathy_edit/RiverArc_Dredge/watershed_ME.shp'
+            ],
+            output_dir=f'{wdir}/Ensure_channel_connectivity/'
+        )
+        hgrid_base_name += '_channel_connectivity_ensured'
+        hgrid_obj.write_hgrid(f'{wdir}/Ensure_channel_connectivity/{hgrid_base_name}.gr3')
+        print("Finished ensuring channel connectivity.\n")
+
     if 'Feeder' in tasks:  # set feeder channel depth
         from SetFeederDp.set_feeder_dp import set_feeder_dp
         # A grid without feeder is needed to identify which feeder points are outside and should be deepened
@@ -273,7 +299,8 @@ def bathy_edit(wdir: Path, hgrid_fname: Path, tasks: list = None):
 
     if 'Temporary_Fix_v7.2' in tasks:  # tweak depths around Bayou Lafourche
         from Temporary_Fix_v7p2.temp_fix_v7p2 import temp_fix_v7p2
-        reference_hgrid_file = '/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v32/Bathy_edit/DEM_loading_for_temp_fix_v7p2/hgrid.ll.dem_loaded.mpi.gr3'
+        reference_hgrid_file = ('/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v32/Bathy_edit/'
+                                'DEM_loading_for_temp_fix_v7p2/hgrid.ll.dem_loaded.mpi.gr3')
         hgrid_base_name += '_temp_fix_v7.2'
         hgrid_obj = temp_fix_v7p2(
             hgrid_obj, wdir=f'{wdir}/Temporary_Fix_v7.2/', reference_hgrid_file=reference_hgrid_file
@@ -281,7 +308,7 @@ def bathy_edit(wdir: Path, hgrid_fname: Path, tasks: list = None):
         hgrid_obj.grd2sms(f'{wdir}/Temporary_Fix_v7.2/{hgrid_base_name}.2dm')
         print("Finished setting temporary fix for v7.2.\n")
 
-    if 'Temporary_Fix_v7.2.1' in tasks:  # tweak depth in regions and operations defined by shapefiles, more flexible than Regional_tweaks
+    if 'Temporary_Fix_v7.2.1' in tasks:  # tweaks around Philadelphia International Airport and Bay of Fundy
         from Regional_tweaks.regional_tweaks import shape_tweak
         hgrid_base_name += '_temp_fix_v7.2.1'
         gpkg_file = f'{wdir}/Temporary_Fix_v7.2.1/v7.2.1_fix.gpkg'
@@ -300,9 +327,17 @@ def sample_usage():
     '''
     WDIR = Path('/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v32/Bathy_edit/')  # working directory, use absolute path
     HGRID_FNAME = Path(  # Typically, this is the DEM-loaded hgrid, use absolute path
-        '/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v32/Bathy_edit/DEM_loading/hgrid.ll.dem_loaded.mpi.gr3'
+        '/sciclone/schism10/hjyoo/task/task10_Atlantic/RUN100a/src/hgrid/Bathy_edit/DEM_loading/'
+        'hgrid.ll.dem_loaded.mpi_replace_NY_Harbor_by_Joseph_DEM.gr3'
     )
-    TASKS = {'xGEOID_cmvd'}  # {'Regional_tweaks', 'NCF', 'Levee_dev', 'xGEOID'}  # DEFAULT_TASKS
+    # TASKS = {
+    #     'Regional_tweaks', 'NCF', 'Levee_dev', 'xGEOID_cmvd',
+    #     'Ensure_channel_connectivity',
+    #     'Temporary_Fix_v7.2', 'Temporary_Fix_v7.2.1'
+    # }  # tasks to be performed, choose from IMPLEMENTED_TASKS, order matters
+
+    HGRID_FNAME = '/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v32/Bathy_edit/hgrid_dem_edit.ll'
+    TASKS = ['Ensure_channel_connectivity']  # just ensure channel connectivity, for testing
 
     bathy_edit(wdir=WDIR, hgrid_fname=HGRID_FNAME, tasks=TASKS)
 

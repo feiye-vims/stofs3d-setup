@@ -12,7 +12,7 @@ from pylib_essentials.schism_file import read_schism_hgrid_cached, grd2sms, schi
 
 def dredge_auto_channels(hgrid_obj:schism_grid, dredge_polygon_file, dredge_depth):
     '''
-    This function is used to dredge the channel nodes automatically.
+    This function is used to dredge the channel nodes automatically to a specified depth
     :param hg_file: Path to the hgrid.gr3 file
     :param dredge_polygon_file: Path to the shapefile containing the polygons of the channel
     :param dredge_depth: dredge depth in meters
