@@ -154,6 +154,46 @@ v19p2_for_sms_v27_mandatory_sources_coor = np.array([
     [-72.06195833333334, 41.525600000000004, np.nan, np.nan],  # Quinebaug River, CT
 ]).reshape(-1, 4)
 
+v19p2_for_sms_v32_mandatory_sources_coor = np.array([
+    [-73.90869, 42.13509, np.nan, np.nan],  # Hudson River, NY
+    [-74.94442, 40.34478, np.nan, np.nan],  # Delaware River, NJ
+    [-76.1079760188, 39.5871749053, np.nan, np.nan],  # Susquehanna River, VA
+    [-76.90572, 37.99332, np.nan, np.nan],  # Rappahannock River, VA - added on 20260422
+    [-78.425288, 34.508177, np.nan, np.nan],  # Cape Fear River, NC
+    [-91.72306, 31.04462, np.nan, np.nan],  # Red River (upstream of Atchafalaya River), LA
+    [-80.10808, 33.50005, np.nan, np.nan],  # Santee River, SC
+    [-79.83866896, 33.65649571, np.nan, np.nan],  # Black River, SC; note: channel not resolved
+    [-79.57210, 33.71223, np.nan, np.nan],  # Black Mingo Creek, SC
+    [-79.49997, 33.84686, np.nan, np.nan],  # Lynches River, SC
+    [-79.48467, 33.93939, np.nan, np.nan],  # Pee Dee River, SC
+    [-79.33247, 33.98196, np.nan, np.nan],  # Little Pee Dee River, SC
+    [-77.917829, 34.749979, np.nan, np.nan],  # Northeast Cape Fear River, NC
+    [-87.9523, 30.8472, np.nan, np.nan],  # Mobile River, AL
+    [-96.695401, 28.968284, -96.69652166667, 28.990345],  # Lavaca River, TX
+    [-96.548436, 28.999706, -96.554498, 29.024612666667],  # Lake Texana, TX
+    [-93.83342666667, 30.355123333333, -93.83342666667, 30.355123333333],  # Cypress Creek, TX
+    [-89.764476, 30.551926, -89.76781133333, 30.538070666667],  # Lotts Creek, LA
+    [-87.219805, 30.567296, -87.24471466667, 30.601442333333],  # Escambia River, FL
+    [-83.987035, 30.331327, np.nan, np.nan],  # Horsehead Creek and Little River, FL
+    [-83.928038, 30.30404, np.nan, np.nan],  # Bailey Mill Creek, FL
+    [-82.950913, 29.958097, -82.99605566667, 30.007415],  # Suwannee River, FL
+    [-81.02370433333333, 27.315079666666666, np.nan, np.nan],  # Kissimmee River, FL
+    [-81.997572, 30.786870, -82.040457, 30.74494233333333],  # St Marys River, FL
+    [-91.56184, 31.05043, np.nan, np.nan],  # Mississippi River
+    [-79.43425, 33.84487, -79.50974266666667, 33.85385866666667],  # Lyches River, SC
+    [-74.74868, 39.47915, -74.75470666666668, 39.485390333333335],  # Great Egg Harbor River, NJ
+    [-73.94009733333333, 42.06972966666667, np.nan, np.nan],  # Saugeties Creek, NY
+    [-73.971293, 41.920595999999996, np.nan, np.nan],  # Hudson River branch, NY
+    [-73.92918633333333, 41.592421333333334, np.nan, np.nan],  # Hudson River branch, NY
+    [-73.07229533333333, 41.303546000000004, np.nan, np.nan],  # Housatonic River, CT
+    [-72.625735, 41.656137666666666, np.nan, np.nan],  # Connecticut River, CT
+    [-72.64970633333333, 41.572111666666665, np.nan, np.nan],  # Mattabesset River, CT
+    [-72.470818, 41.47020933333334, np.nan, np.nan],  # Salmon River, CT
+    [-72.090553, 41.535118000000004, np.nan, np.nan],  # Yantic River, CT
+    [-72.06195833333334, 41.525600000000004, np.nan, np.nan],  # Quinebaug River, CT
+]).reshape(-1, 4)
+
+
 v45_s2_mandatory_sources_coor = np.array([  # LA subdomain, only LA sources
     [-91.72306, 31.04462, np.nan, np.nan],  # Red River (upstream of Atchafalaya River), LA
     [-89.764476, 30.551926, -89.76781133333, 30.538070666667],  # Lotts Creek, LA

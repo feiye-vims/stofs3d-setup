@@ -567,7 +567,7 @@ def gen_vqs(hgrid_file="hgrid.gr3", output_dir=None):
     if output_dir is None:
         output_dir = Path.cwd()
 
-    master = build_master_vgrid2()
+    master = build_master_vgrid()
 
     # Optional: save vgrid_master.out for debugging/plotting (as in Fortran)
     write_vgrid_master_out(f"{output_dir}/vgrid_master.out", master["hsm"], master["nv_vqs"], master["z_mas"])

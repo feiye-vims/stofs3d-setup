@@ -132,9 +132,9 @@ def assemble_source_sink(config, hgrid, model_input_path=None, wdir=None):
         main_hgrid_has_feeder = True
     else:
         print(
-            'Special case: only the main hgrid is provided,'
-            'assuming the main hgrid has NO feeders!'
-            'Caution: you should not search for NWM source/sink on a grid with feeders!'
+            'Special case: only the main hgrid is provided. '
+            'Caution: you should not search for NWM source/sink on a grid with feeders! '
+            'I will assume the main hgrid has no feeders and carry on.'
         )
         main_hgrid_has_feeder = False
 
@@ -317,7 +317,7 @@ def assemble_source_sink(config, hgrid, model_input_path=None, wdir=None):
         os.system('ln -sf ./original_source_sink/sources.json .')
 
     # temporary fix for isolated feeder channels; Note this doesn't change sources.json or source.nc
-    if config.source_ele_replace_dict is not None:
+    if config.source_ele_replace_dict is not None and config.source_ele_replace_dict != {}:
         from .patch_feeder_source_sink_in import replace_ele_in_source_sink
         replace_ele_in_source_sink(wdir, config.source_ele_replace_dict)
 

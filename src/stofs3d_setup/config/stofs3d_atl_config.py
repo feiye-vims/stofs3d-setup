@@ -317,14 +317,15 @@ class ConfigStofs3dAtlantic(BaseModel):
             nudging_zone_width=7.3,  # default nudging zone
             shapiro_zone_width=11.5,  # default shapiro zone
             shapiro_tilt=3.5,  # default abrupt transition in the shapiro zone
-            feeder_info_file=None,
+            feeder_info_file=(
+                '/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v32/Feeder/'
+                'feeder_heads_bases.xy'
+            ),
             hgrid_without_feeders=None,
             relocate_source=True,
-            mandatory_sources_coor=rsf.v19p2_for_sms_v27_mandatory_sources_coor,
+            mandatory_sources_coor=rsf.v19p2_for_sms_v32_mandatory_sources_coor,
             nwm_cache_folder=None,
-            source_ele_replace_dict={
-                # 53: 3552194,
-            },
+            source_ele_replace_dict={},
             bc_flags=[
                 [5, 5, 4, 4],  # Atlantic Ocean
                 [5, 5, 4, 4],  # Gulf of St. Lawrence
@@ -340,7 +341,7 @@ class ConfigStofs3dAtlantic(BaseModel):
                 [None, None, 0.5, 0.5],  # Gulf of St. Lawrence
                 [None, None, 0.01, 1.0],  # St. Lawrence River
             ],
-            tvd_regions=None
+            tvd_regions=[]
         )
 
     @classmethod
