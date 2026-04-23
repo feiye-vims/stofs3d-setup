@@ -1,7 +1,7 @@
-from pylib_experimental.schism_file import cread_schism_hgrid
 import copy
 import geopandas as gpd
 import numpy as np
+from pylib import read
 
 
 def temp_fix_v7p2(gd_ll, wdir, reference_hgrid_file):
@@ -73,7 +73,7 @@ def temp_fix_v7p2(gd_ll, wdir, reference_hgrid_file):
 
         original_dp = gd_ll.dp[idx]
         print(f'{sum(original_dp >= 1.0)} points with large depth in {land_name}.')
-        reference_hgrid = cread_schism_hgrid(land_info['reference_hgrid'])
+        reference_hgrid = read(land_info['reference_hgrid'])
         print(f'Forcing minimum depth (maximum ground elevation) for {land_name}.')
         gd_ll.dp[idx] = np.minimum(gd_ll.dp[idx], reference_hgrid.dp[idx])
 
@@ -97,5 +97,5 @@ def temp_fix_v7p2(gd_ll, wdir, reference_hgrid_file):
 if __name__ == '__main__':
     wdir = '/sciclone/home/feiye/stofs3d-atl/Pre_processing/Bathy_edit/Temporary_Fix_v7.2/'
     reference_hgrid_file = "/sciclone/schism10/feiye/STOFS3D-v8/I15g_v7/Bathy_edit/hgrid_dem_edit.ll"
-    gd_ll = cread_schism_hgrid('/sciclone/schism10/feiye/STOFS3D-v8/I15e_v7/hgrid.gr3')
+    gd_ll = read('/sciclone/schism10/feiye/STOFS3D-v8/I15e_v7/hgrid.gr3')
     gd_ll = temp_fix_v7p2(gd_ll=None, wdir=wdir, reference_hgrid_file=reference_hgrid_file)
