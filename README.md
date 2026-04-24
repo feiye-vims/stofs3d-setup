@@ -8,6 +8,8 @@ These scripts automate common preprocessing tasks such as mesh preparation, forc
 
 ## Dependencies
 
+The scripts are tested on Python 3.10.
+
 The following Python packages are required:
 
 - `fiona`

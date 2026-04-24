@@ -324,8 +324,12 @@ def bathy_edit(wdir: Path, hgrid_fname: Path, tasks: list = None):
 def sample_usage():
     '''
     Sample usage of the bathy_edit function.
+
+    Recommended to copy he entire Bathy_edit/ folder to your working directory to keep
+    a record of the scripts and the larger files used.
+    Then set the paths below and run this function.
     '''
-    WDIR = Path('/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v32/Bathy_edit_32b/')  # working directory, use absolute path
+    WDIR = Path('/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v32/Bathy_edit_32b/').resolve(strict=True)
     HGRID_FNAME = Path(  # Typically, this is the DEM-loaded hgrid, use absolute path
         '/sciclone/schism10/hjyoo/task/task10_Atlantic/RUN100a/src/hgrid/Bathy_edit/DEM_loading/'
         'hgrid.ll.dem_loaded.mpi_replace_NY_Harbor_by_Joseph_DEM.gr3'
