@@ -2,8 +2,8 @@ profile: "v7.4_2017"   # *
 
 run:
   project_dir: "/sciclone/schism10/feiye/STOFS3D-v7.4/"
-  runid: "01"  # *
-  hgrid_path: "/sciclone/schism10/feiye/STOFS3D-v7.4/I01/hgrid.gr3"
+  runid: "100b"  # *
+  hgrid_path: "/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v32/v32b.gr3"
 
 model:
   version: "v7p4"
@@ -20,14 +20,14 @@ runtime:
 
 inputs:
   bctides: false
-  vgrid: false
+  vgrid: true
   gr3: false
   nudge_gr3: false
   shapiro: false
   drag: false
   elev_ic: false
   flux_th: false
-  source_sink: true
+  source_sink: false
   soil: false
   "hotstart.nc": false
   "3D.th.nc": false
