@@ -271,6 +271,53 @@ def max_dp_in_region(grid_list: list, region_file: str, primary_grid_idx: int = 
     return dp
 
 
+def direct_replace_dp_in_region(base_grid, replacement_grid, region_file: str):
+    """
+    Directly replace depth values (dp) in a specified region.
+
+    Within the region defined by region_file, the depth values from
+    replacement_grid are used to overwrite those in base_grid.
+
+    However, invalid values in replacement_grid (e.g., -9999) are ignored,
+    and the original base_grid values are preserved at those locations.
+    """
+
+    dp = deepcopy(base_grid.dp)
+
+    # Read region shapefile
+    region_gdf = gpd.read_file(region_file)
+
+    # Create GeoDataFrame of grid points
+    points_gdf = gpd.GeoDataFrame(
+        geometry=gpd.points_from_xy(x=base_grid.x, y=base_grid.y),
+        crs='epsg:4326'
+    )
+
+    # Find indices of points inside the region
+    points_in_region = gpd.sjoin(
+        points_gdf,
+        region_gdf.to_crs('epsg:4326'),
+        how='inner',
+        predicate='within'
+    ).index.values
+
+    print(f'{len(points_in_region)} nodes found inside the replacement region.')
+
+    # Define valid replacement values (exclude invalid sentinel values)
+    valid_mask = (replacement_grid.dp != -9999) & np.isfinite(replacement_grid.dp)
+
+    # Only replace where both conditions are satisfied:
+    # (1) inside the region
+    # (2) replacement value is valid
+    replace_idx = points_in_region[valid_mask[points_in_region]]
+
+    print(f'{len(replace_idx)} nodes actually replaced (valid values only).')
+
+    # Perform replacement
+    dp[replace_idx] = replacement_grid.dp[replace_idx]
+
+    return dp
+
 # ---------------------- Sample Usage ----------------------
 def sample_max_dp_usage():
     '''Sample usage of the max_dp_in_region function.'''
@@ -480,6 +527,65 @@ def stofs3d_v7p2_original():
 
     comm.Barrier()
 
+def stofs3d_v7p4():
+    """
+    """
+
+    # ----------- inputs -------------------
+    wdir = '/sciclone/schism10/hjyoo/task/task10_Atlantic/stofs3d-setup_v7p4/stofs3d-setup_v1/src/stofs3d_setup/ops/Bathy_edit/DEM_loading/'
+    dem_dir = '/sciclone/schism10/Hgrid_projects/DEMs/npz3/'
+    dem_json_list = [
+        'DEM_info_original_patched_v7p4.json',
+        'DEM_info_with_bluetopo.json',
+        'DEM_info_v3a.json',  # v3a has CoNED 2022 NGOM for LA
+        'DEM_info_Statewide.json',  # , v4 added USGS 1M Statewide for CT and RI
+        'DEM_info_NYH.json',
+    ]
+    max_dem_region_shpfile = 'bluetopo_regions4.shp'
+    min_dem_region_shpfile = 'breakwaters_poly.shp'
+    direct_replacement_region_shpfile = 'nyh_region.shp'
+    output_fname = f'{wdir}/hgrid.ll.dem_loaded.mpi.gr3'
+    # ---------------------------------------
+
+    comm, _, myrank = initialize_mpi()
+    if myrank == 0:  # copy this script to the working directory to keep a record
+        prep_dir(wdir, dem_json_list, [max_dem_region_shpfile, min_dem_region_shpfile, direct_replacement_region_shpfile])
+        print(f'preparing files in {wdir}, DEM list: {dem_json_list}')
+
+    comm.Barrier()
+
+    loaded_grids = []
+    for dem_json in dem_json_list:
+        # Load grids in parallel
+        loaded_grids.append(
+            pload_dem(grd=f'{wdir}/hgrid.ll', grdout=None, dem_json=f'{wdir}/{dem_json}',
+                      dem_dir=dem_dir, reverse_sign=True)  # returns None for non-root
+        )  # On non-root processes, loaded_grids only contains None
+        comm.Barrier()  # wait for all cores to finish populating loaded_grids
+        if myrank == 0:
+            print(f'---------Loaded grid from {dem_json}----------\n')
+
+    # On root process, take the maximum depth from loaded_grids
+    if myrank == 0:
+        print(f'processing loaded grids: {loaded_grids}')
+        hgrid_final = deepcopy(loaded_grids[0])
+        hgrid_final.dp = max_dp_in_region(
+            loaded_grids[:-1], region_file=f'{wdir}/{max_dem_region_shpfile}')
+        hgrid_final.dp = max_dp_in_region(
+            [hgrid_final, loaded_grids[-1]],
+            region_file=f'{wdir}/{min_dem_region_shpfile}',
+            reverse_sign=True)
+        # directly replacement
+        hgrid_final.dp = direct_replace_dp_in_region(
+            hgrid_final,
+            loaded_grids[-1],
+            region_file=f'{wdir}/{direct_replacement_region_shpfile}'
+        )        
+
+        hgrid_final.save(output_fname)
+
+    comm.Barrier()
+    
 
 def stofs3d_v8():
     """
@@ -607,4 +713,5 @@ def sample_convert_dem():
 if __name__ == '__main__':
     # sample_convert_dem()
     # stofs3d_v7p2_original()
-    stofs3d_v8()
+    #stofs3d_v8()
+    stofs3d_v7p4()
