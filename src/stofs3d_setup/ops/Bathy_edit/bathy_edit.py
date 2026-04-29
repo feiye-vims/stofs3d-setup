@@ -315,6 +315,14 @@ def bathy_edit(wdir: Path, hgrid_fname: Path, tasks: list = None):
         hgrid_obj, hgrid_tweaked_idx = shape_tweak(hgrid_obj, gpkg_file)
         grd2sms(hgrid_obj, f'{wdir}/Temporary_Fix_v7.2.1/{hgrid_base_name}.2dm')
         print("Finished setting shape tweaks.\n")
+    
+    if 'Temporary_Fix_v7.4' in tasks:
+        from Regional_tweaks.regional_tweaks import shape_tweak
+        hgrid_base_name += '_temp_fix_v7.4'
+        gpkg_file = f'{wdir}/Temporary_Fix_v7.4/v7.4_fix.gpkg'
+        hgrid_obj, hgrid_tweaked_idx = shape_tweak(hgrid_obj, gpkg_file)
+        grd2sms(hgrid_obj, f'{wdir}/Temporary_Fix_v7.4/{hgrid_base_name}.2dm')
+        print("Finished setting shape tweaks for v7.4.\n")
 
     # ------------------- save final product -------------------
     hgrid_obj.save(f'{wdir}/hgrid_dem_edit.ll', fmt=1)
@@ -335,9 +343,10 @@ def sample_usage():
         'hgrid.ll.dem_loaded.mpi_replace_NY_Harbor_by_Joseph_DEM.gr3'
     )
     TASKS = {
-        'Regional_tweaks', 'NCF', 'Levee_dev', 'xGEOID',
+        'Regional_tweaks', 'NCF', 'Levee_dev', 'xGEOID_cmvd',
         'Ensure_channel_connectivity',
-        'Temporary_Fix_v7p2', 'Temporary_Fix_v7.2.1'
+        # 'Temporary_Fix_v7p2',
+        'Temporary_Fix_v7.2.1'
     }  # tasks to be performed, choose from IMPLEMENTED_TASKS, order matters
 
     bathy_edit(wdir=WDIR, hgrid_fname=HGRID_FNAME, tasks=TASKS)

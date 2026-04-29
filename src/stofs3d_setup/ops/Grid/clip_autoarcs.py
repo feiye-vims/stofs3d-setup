@@ -13,7 +13,7 @@ import os
 import geopandas as gpd
 
 # ------------------------- inputs ---------------------------
-WDIR = '/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v32/Clip/'
+WDIR = '/sciclone/schism10/Hgrid_projects/STOFS3D-v7.4/v32c/Clip/'
 CRS = 'esri:102008'
 
 # manual polygons defined in the coastal coverage,
@@ -35,7 +35,7 @@ LEVEE_BUF_DISTANCE = 5
 select_nearshore_shpfile = f'{WDIR}/inputs/select_nearshore_v4.shp'  # esri:102008
 
 manual_clipping_in_qgis = True
-# not needed if you clip the auto arcs manually in qgis,
+# not needed if you clip the auto arcs manually in qgis, which is faster
 auto_arcs_file = f'{WDIR}/inputs/total_arcs.shp'  # lonlat
 auto_polys_file = f'{WDIR}/inputs/total_river_polys.shp'  # lonlat
 # ------------------------- end inputs ---------------------------
