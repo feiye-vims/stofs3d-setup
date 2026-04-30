@@ -323,7 +323,7 @@ class ConfigStofs3dAtlantic(BaseModel):
             ),
             hgrid_without_feeders=None,
             relocate_source=True,
-            mandatory_sources_coor=rsf.v19p2_for_sms_v32_mandatory_sources_coor,
+            mandatory_sources_coor=rsf.v19p2_for_sms_v32c_mandatory_sources_coor,
             nwm_cache_folder=None,
             source_ele_replace_dict={},
             bc_flags=[

@@ -90,16 +90,10 @@ def ensure_channel_connectivity(
                 raise ValueError(f'exclude_region_gdf_file {exclude_region_gdf_file} must be a valid file path.')
 
     # Load extra information from the river arcs
-    rivers = Rivers(SMS_MAP(
-        '/sciclone/schism10/Hgrid_projects/STOFS3D-v7/v19_RiverMapper/Outputs/'
-        'bora_v19.1.v19_ie_v18_3_nwm_clipped_in_cudem_missing_tiles_20-core/'
-        'total_river_arcs_extra.map'
-    ))  # default crs is 'epsg:4326', which is also the default for RiverMapper
+    rivers = Rivers(SMS_MAP(river_extra_info_map_file))  # default crs is 'epsg:4326', which is also the default for RiverMapper
 
     # Define region of interest
-    watershed_origional = gpd.read_file(
-        '/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v32/Clip/outputs/watershed.shp'
-    )
+    watershed_origional = gpd.read_file(region_gdf_file)
     # Exclude regions
     if exclude_region_gdf_file_list is not None and exclude_region_gdf_file_list != []:
         watershed = deepcopy(watershed_origional)

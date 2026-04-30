@@ -53,7 +53,8 @@ IMPLEMENTED_TASKS = [  # order matters
                                     # relative, vertical datum doesn't matter
     'Feeder',  # set feeder channel depth, relative, vertical datum doesn't matter
     'Temporary_Fix_v7p2',  # tweak depths around Bayou Lafourche
-    'Temporary_Fix_v7.2.1',  # tweak depth around Philadelphia International Airport
+    'Temporary_Fix_v7.2.1',  # tweak depth around Philadelphia International Airport and Minas Basin
+    'Temporary_Fix_v7.4',  # tweak depth around Philadelphia International Airport
 ]
 
 DEFAULT_TASKS = {'Regional_tweaks', 'NCF', 'Levee', 'xGEOID'}
@@ -139,6 +140,8 @@ def prepare_dir(wdir: Path, tasks: str):
         print('The script is already in the working directory; no need to copy.')
     else:
         print(f'Copying the script and the subdirectories to {wdir}')
+        os.makedirs(wdir, exist_ok=True)
+        os.system(f'cp {__file__} {wdir}')  # copy the script itself to the working directory
         for task in tasks:
             if Path(f'{wdir}/{task}/').exists():
                 print(f'Skipping copying {task}, already exists in the working directory.')
@@ -268,7 +271,7 @@ def bathy_edit(wdir: Path, hgrid_fname: Path, tasks: list = None):
                 'total_river_arcs_extra.map'
             ),
             region_gdf_file=(
-                '/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v32/Clip/outputs/watershed.shp'
+                '/sciclone/schism10/Hgrid_projects/STOFS3D-v7.4/v32c/Clip/outputs/watershed.shp'
             ),
             exclude_region_gdf_file_list=[
                 '/sciclone/schism10/feiye/STOFS3D-v8/I15_v7/Bathy_edit/RiverArc_Dredge/watershed_ME.shp'
@@ -299,7 +302,7 @@ def bathy_edit(wdir: Path, hgrid_fname: Path, tasks: list = None):
 
     if 'Temporary_Fix_v7p2' in tasks:  # tweak depths around Bayou Lafourche
         from Temporary_Fix_v7p2.temp_fix_v7p2 import temp_fix_v7p2
-        reference_hgrid_file = ('/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v32/Bathy_edit/'
+        reference_hgrid_file = ('/sciclone/schism10/Hgrid_projects/STOFS3D-v7.4/v32c/Bathy_edit/'
                                 'DEM_loading_for_temp_fix_v7p2/hgrid.ll.dem_loaded.mpi.gr3')
         hgrid_base_name += '_temp_fix_v7.2'
         hgrid_obj = temp_fix_v7p2(
@@ -315,7 +318,7 @@ def bathy_edit(wdir: Path, hgrid_fname: Path, tasks: list = None):
         hgrid_obj, hgrid_tweaked_idx = shape_tweak(hgrid_obj, gpkg_file)
         grd2sms(hgrid_obj, f'{wdir}/Temporary_Fix_v7.2.1/{hgrid_base_name}.2dm')
         print("Finished setting shape tweaks.\n")
-    
+
     if 'Temporary_Fix_v7.4' in tasks:
         from Regional_tweaks.regional_tweaks import shape_tweak
         hgrid_base_name += '_temp_fix_v7.4'
@@ -337,16 +340,16 @@ def sample_usage():
     a record of the scripts and the larger files used.
     Then set the paths below and run this function.
     '''
-    WDIR = Path('/sciclone/schism10/Hgrid_projects/STOFS3D-v8/v32/Bathy_edit_32b/').resolve(strict=True)
+    WDIR = Path('/sciclone/schism10/Hgrid_projects/STOFS3D-v7.4/v32c/Bathy_edit/').resolve(strict=True)
     HGRID_FNAME = Path(  # Typically, this is the DEM-loaded hgrid, use absolute path
-        '/sciclone/schism10/hjyoo/task/task10_Atlantic/RUN100a/src/hgrid/Bathy_edit/DEM_loading/'
-        'hgrid.ll.dem_loaded.mpi_replace_NY_Harbor_by_Joseph_DEM.gr3'
+        '/sciclone/schism10/Hgrid_projects/STOFS3D-v7.4/v32c/Bathy_edit/DEM_loading/'
+        'hgrid.ll.dem_loaded.mpi.gr3'
     )
     TASKS = {
         'Regional_tweaks', 'NCF', 'Levee_dev', 'xGEOID_cmvd',
         'Ensure_channel_connectivity',
-        # 'Temporary_Fix_v7p2',
-        'Temporary_Fix_v7.2.1'
+        'Temporary_Fix_v7p2',
+        'Temporary_Fix_v7.4'
     }  # tasks to be performed, choose from IMPLEMENTED_TASKS, order matters
 
     bathy_edit(wdir=WDIR, hgrid_fname=HGRID_FNAME, tasks=TASKS)
