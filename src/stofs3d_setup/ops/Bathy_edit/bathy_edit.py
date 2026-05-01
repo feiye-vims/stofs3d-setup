@@ -348,8 +348,7 @@ def sample_usage():
     TASKS = {
         'Regional_tweaks', 'NCF', 'Levee_dev', 'xGEOID_cmvd',
         'Ensure_channel_connectivity',
-        'Temporary_Fix_v7p2',
-        'Temporary_Fix_v7.4'
+        # 'Temporary_Fix_v7p2',
     }  # tasks to be performed, choose from IMPLEMENTED_TASKS, order matters
 
     bathy_edit(wdir=WDIR, hgrid_fname=HGRID_FNAME, tasks=TASKS)
